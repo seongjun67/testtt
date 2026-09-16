@@ -315,13 +315,14 @@
     </div>
 
     <script>
+        // 은 똥, 황금 똥 스탯 너프 적용
         const POOP_TYPES = {
             NORMAL: { type: 'NORMAL', name: '일반 똥', cost: 300, border: 'border-normal', color: 0x2ecc71, bulletColor: 0x2ecc71, range: 7, damage: 25, speed: 800 },
             BIG:    { type: 'BIG',    name: '큰 똥',   cost: 500, border: 'border-big',    color: 0x3498db, bulletColor: 0x3498db, range: 8, damage: 55, speed: 1000 },
             LASER:  { type: 'LASER',  name: '레이저 똥', cost: 700, border: 'border-laser',  color: 0x9b59b6, bulletColor: 0x00ffff, range: 12, damage: 35, speed: 200 },
             ATOMIC: { type: 'ATOMIC', name: '원자 똥', cost: 1000, border: 'border-atomic', color: 0xf1c40f, bulletColor: 0x00ff00, range: 10, damage: 95, speed: 650 },
-            SILVER: { type: 'SILVER', name: '은 똥',   cost: 1300, border: 'border-silver', color: 0xc0c0c0, bulletColor: 0xe0e0e0, range: 13, damage: 180, speed: 500 },
-            GOLD:   { type: 'GOLD',   name: '황금 똥', cost: 1500, border: 'border-gold',   color: 0xffd700, bulletColor: 0xffffd0, range: 16, damage: 450, speed: 300 }
+            SILVER: { type: 'SILVER', name: '은 똥',   cost: 1300, border: 'border-silver', color: 0xc0c0c0, bulletColor: 0xe0e0e0, range: 10, damage: 110, speed: 650 },
+            GOLD:   { type: 'GOLD',   name: '황금 똥', cost: 1500, border: 'border-gold',   color: 0xffd700, bulletColor: 0xffffd0, range: 12, damage: 220, speed: 450 }
         };
 
         let state = {
@@ -796,7 +797,7 @@
                 type: poop.type,
                 name: poop.name,
                 cost: poop.cost,
-                totalSpent: poop.cost, // 총 투자된 비용 저장
+                totalSpent: poop.cost,
                 damage: poop.damage,
                 range: poop.range,
                 speed: poop.speed,
@@ -836,7 +837,6 @@
             const upgradeCost = tower.level * 300;
             document.getElementById('upgrade-cost').innerText = upgradeCost;
 
-            // 판매 금액 계산 (총 투자비용의 25%)
             const refundValue = Math.floor(tower.totalSpent * 0.25);
             document.getElementById('sell-value').innerText = refundValue;
 
@@ -859,7 +859,7 @@
             if (state.battleGold < cost) return alert("골드가 부족합니다!");
 
             state.battleGold -= cost;
-            state.selectedTowerInstance.totalSpent += cost; // 누적 투자액 반영
+            state.selectedTowerInstance.totalSpent += cost;
             state.selectedTowerInstance.level++;
             state.selectedTowerInstance.damage = Math.round(state.selectedTowerInstance.damage * 1.3);
             state.selectedTowerInstance.range += 0.5;
@@ -874,7 +874,6 @@
             const refundValue = Math.floor(state.selectedTowerInstance.totalSpent * 0.25);
             state.battleGold += refundValue;
 
-            // 필드에서 제거
             scene.remove(state.selectedTowerInstance.mesh);
             const idx = state.towers.indexOf(state.selectedTowerInstance);
             if (idx > -1) {
@@ -926,7 +925,6 @@
             document.getElementById('timer-display').style.display = 'none';
             document.getElementById('enemy-display').style.display = 'flex';
 
-            // 중간 난이도 스폰 수 (5 + 4/웨이브)
             let totalEnemies = 5 + (state.wave - 1) * 4; 
             state.remainingToSpawn = totalEnemies;
             document.getElementById('enemy-count').innerText = totalEnemies;
@@ -953,7 +951,6 @@
             mesh.position.y = 0.6;
             scene.add(mesh);
 
-            // 중간 난이도 밸런스 공식 적용
             const hp = 80 + (state.wave - 1) * 60; 
             const speed = 0.06 + (state.wave - 1) * 0.007; 
 
@@ -1059,7 +1056,6 @@
             }
 
             if (state.mode === 'BATTLE') {
-                // Enemies Movement
                 for (let i = state.enemies.length - 1; i >= 0; i--) {
                     const e = state.enemies[i];
                     const target = state.path[e.pathIdx + 1];
@@ -1087,7 +1083,6 @@
                     }
                 }
 
-                // Towers Attack
                 state.towers.forEach(t => {
                     if (now - t.lastShot >= t.speed) {
                         let target = null;
@@ -1121,7 +1116,6 @@
                     }
                 });
 
-                // Bullets Update
                 for (let i = state.bullets.length - 1; i >= 0; i--) {
                     const b = state.bullets[i];
                     if (!state.enemies.includes(b.target)) {
@@ -1151,7 +1145,6 @@
                     }
                 }
 
-                // Wave Clear Check
                 if (!state.isPrepPhase && state.remainingToSpawn === 0 && state.enemies.length === 0) {
                     state.wave++;
                     state.battleGold += 200;
