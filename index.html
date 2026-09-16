@@ -151,6 +151,18 @@
             font-weight: 900;
         }
 
+        #skip-btn {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        #skip-btn:hover { background: #0b7dda; }
+
         #global-battle-bar {
             position: absolute;
             bottom: 15px;
@@ -201,6 +213,8 @@
         button:hover { background: #45a049; }
         .close-btn { background: #f44336; }
         .close-btn:hover { background: #da190b; }
+        .sell-btn { background: #e67e22; }
+        .sell-btn:hover { background: #d35400; }
         .lobby-return-btn { background: #ff9800; font-weight: bold; }
         input[type="text"] { padding: 8px; font-size: 16px; border-radius: 5px; border: 1px solid #aaa; text-align: center; width: 150px; }
     </style>
@@ -276,7 +290,10 @@
             <div class="stat-badge" style="color: #ff4444;">🏰 성 HP: <span id="castle-hp">10</span></div>
             <div class="stat-badge" style="color: #00ffff;">⚔️ WAVE: <span id="wave-num">1</span></div>
             <div class="stat-badge" style="color: #ffd700;">💰 전투 골드: <span id="battle-gold">1000</span>G</div>
-            <div id="timer-display" class="stat-badge" style="color: #ff9900;">⏳ 준비시간: <span id="prep-timer">10</span>초</div>
+            <div id="timer-display" class="stat-badge" style="color: #ff9900;">
+                ⏳ 준비시간: <span id="prep-timer">10</span>초 
+                <button id="skip-btn" onclick="skipPrepPhase()">⏩ 웨이브 시작</button>
+            </div>
             <div id="enemy-display" class="stat-badge" style="display:none; color: #ff4444;">👾 남은 적: <span id="enemy-count">0</span></div>
             <button class="lobby-return-btn" onclick="exitToLobby()">로비로 돌아가기</button>
         </div>
@@ -293,6 +310,7 @@
         <div>공격력: <span id="tower-damage">0</span></div>
         <div>사거리: <span id="tower-range">0</span></div>
         <button id="upgrade-btn" onclick="upgradeSelectedTower()" style="width:100%; margin-top:10px;">강화 (<span id="upgrade-cost">300</span>G)</button>
+        <button id="sell-tower-btn" class="sell-btn" onclick="sellSelectedTower()" style="width:100%; margin-top:5px;">💰 판매 (<span id="sell-value">0</span>G)</button>
         <button class="close-btn" onclick="closeTowerInfo()" style="width:100%; margin-top:5px;">닫기</button>
     </div>
 
@@ -322,7 +340,8 @@
             enemies: [],
             bullets: [],
             path: [],
-            isMultiplayer: false
+            isMultiplayer: false,
+            remainingToSpawn: 0
         };
 
         let scene, camera, renderer, player, battleFloor;
@@ -341,18 +360,10 @@
         let previewTowerMesh = null;
         let rangeIndicatorMesh = null;
 
-        // bgm.mp3 배경음 설정
         let bgm = new Audio('assets/sounds/bgm.mp3');
         bgm.loop = true;
 
-        function playBgm() {
-            bgm.play().catch(e => {});
-        }
-
-        function stopBgm() {
-            bgm.pause();
-            bgm.currentTime = 0;
-        }
+        function playBgm() { bgm.play().catch(e => {}); }
 
         function saveData() {
             localStorage.setItem('poopTD_saveData', JSON.stringify({
@@ -404,7 +415,7 @@
             window.addEventListener('resize', onWindowResize);
             window.addEventListener('click', () => {
                 onCanvasClick();
-                playBgm(); // 클릭 시 BGM 자동 재생 승인
+                playBgm();
             });
 
             window.addEventListener('dragover', onPointerMove);
@@ -415,8 +426,8 @@
         }
 
         function clearScene() {
-            if (prepTimerInterval) clearInterval(prepTimerInterval);
-            if (waveSpawnInterval) clearInterval(waveSpawnInterval);
+            if (prepTimerInterval) { clearInterval(prepTimerInterval); prepTimerInterval = null; }
+            if (waveSpawnInterval) { clearInterval(waveSpawnInterval); waveSpawnInterval = null; }
             while(scene.children.length > 0) { scene.remove(scene.children[0]); }
             pathMeshes = [];
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
@@ -474,7 +485,7 @@
 
         function buildBattleField() {
             clearScene();
-            playBgm(); // 전투장에서도 동일하게 BGM 계속 재생
+            playBgm();
             state.mode = 'BATTLE';
             scene.background = new THREE.Color(0x111118);
 
@@ -784,6 +795,8 @@
                 mesh: mesh,
                 type: poop.type,
                 name: poop.name,
+                cost: poop.cost,
+                totalSpent: poop.cost, // 총 투자된 비용 저장
                 damage: poop.damage,
                 range: poop.range,
                 speed: poop.speed,
@@ -819,7 +832,14 @@
             document.getElementById('tower-level').innerText = tower.level;
             document.getElementById('tower-damage').innerText = tower.damage;
             document.getElementById('tower-range').innerText = tower.range;
-            document.getElementById('upgrade-cost').innerText = tower.level * 300;
+            
+            const upgradeCost = tower.level * 300;
+            document.getElementById('upgrade-cost').innerText = upgradeCost;
+
+            // 판매 금액 계산 (총 투자비용의 25%)
+            const refundValue = Math.floor(tower.totalSpent * 0.25);
+            document.getElementById('sell-value').innerText = refundValue;
+
             document.getElementById('tower-info-modal').style.display = 'block';
 
             if (rangeIndicatorMesh) scene.remove(rangeIndicatorMesh);
@@ -839,11 +859,29 @@
             if (state.battleGold < cost) return alert("골드가 부족합니다!");
 
             state.battleGold -= cost;
+            state.selectedTowerInstance.totalSpent += cost; // 누적 투자액 반영
             state.selectedTowerInstance.level++;
             state.selectedTowerInstance.damage = Math.round(state.selectedTowerInstance.damage * 1.3);
             state.selectedTowerInstance.range += 0.5;
 
             selectTower(state.selectedTowerInstance);
+            updateUI();
+        }
+
+        function sellSelectedTower() {
+            if (!state.selectedTowerInstance) return;
+
+            const refundValue = Math.floor(state.selectedTowerInstance.totalSpent * 0.25);
+            state.battleGold += refundValue;
+
+            // 필드에서 제거
+            scene.remove(state.selectedTowerInstance.mesh);
+            const idx = state.towers.indexOf(state.selectedTowerInstance);
+            if (idx > -1) {
+                state.towers.splice(idx, 1);
+            }
+
+            closeTowerInfo();
             updateUI();
         }
 
@@ -857,6 +895,9 @@
         }
 
         function startPrepPhase() {
+            if (prepTimerInterval) clearInterval(prepTimerInterval);
+            if (waveSpawnInterval) clearInterval(waveSpawnInterval);
+
             state.isPrepPhase = true;
             state.prepTime = 10;
             document.getElementById('timer-display').style.display = 'flex';
@@ -867,10 +908,17 @@
                 state.prepTime--;
                 document.getElementById('prep-timer').innerText = state.prepTime;
                 if (state.prepTime <= 0) {
-                    clearInterval(prepTimerInterval);
-                    startWavePhase();
+                    skipPrepPhase();
                 }
             }, 1000);
+        }
+
+        function skipPrepPhase() {
+            if (prepTimerInterval) {
+                clearInterval(prepTimerInterval);
+                prepTimerInterval = null;
+            }
+            startWavePhase();
         }
 
         function startWavePhase() {
@@ -878,16 +926,20 @@
             document.getElementById('timer-display').style.display = 'none';
             document.getElementById('enemy-display').style.display = 'flex';
 
-            let count = 5 + state.wave * 3;
-            let spawned = 0;
-            document.getElementById('enemy-count').innerText = count;
+            // 중간 난이도 스폰 수 (5 + 4/웨이브)
+            let totalEnemies = 5 + (state.wave - 1) * 4; 
+            state.remainingToSpawn = totalEnemies;
+            document.getElementById('enemy-count').innerText = totalEnemies;
+
+            if (waveSpawnInterval) clearInterval(waveSpawnInterval);
 
             waveSpawnInterval = setInterval(() => {
-                if (spawned < count) {
+                if (state.remainingToSpawn > 0) {
                     spawnEnemy();
-                    spawned++;
+                    state.remainingToSpawn--;
                 } else {
                     clearInterval(waveSpawnInterval);
+                    waveSpawnInterval = null;
                 }
             }, 1000);
         }
@@ -901,13 +953,15 @@
             mesh.position.y = 0.6;
             scene.add(mesh);
 
-            // 적 능력치 상향 조정 (체력 및 이동속도 증가)
-            const hp = 100 + state.wave * 60;
+            // 중간 난이도 밸런스 공식 적용
+            const hp = 80 + (state.wave - 1) * 60; 
+            const speed = 0.06 + (state.wave - 1) * 0.007; 
+
             state.enemies.push({
                 mesh: mesh,
                 hp: hp,
                 maxHp: hp,
-                speed: 0.065 + state.wave * 0.008,
+                speed: speed,
                 pathIdx: 0
             });
         }
@@ -1087,7 +1141,7 @@
                             if (idx > -1) {
                                 scene.remove(b.target.mesh);
                                 state.enemies.splice(idx, 1);
-                                state.battleGold += 50; // 적 처치 시 전투 코인 +50G
+                                state.battleGold += 50;
                                 updateUI();
                             }
                         }
@@ -1097,17 +1151,17 @@
                     }
                 }
 
-                // Wave Clear Check 4234234
-                if (!state.isPrepPhase && state.enemies.length === 0) {
+                // Wave Clear Check
+                if (!state.isPrepPhase && state.remainingToSpawn === 0 && state.enemies.length === 0) {
                     state.wave++;
                     state.battleGold += 200;
-                    state.gold += 30; // 1웨이브 클리어 시 로비 코인 +30G
-                    saveData(); // 증가한 로비 코인 저장
+                    state.gold += 30;
+                    saveData();
                     updateUI();
                     startPrepPhase();
                 }
 
-                document.getElementById('enemy-count').innerText = state.enemies.length;
+                document.getElementById('enemy-count').innerText = state.enemies.length + state.remainingToSpawn;
             }
 
             renderer.render(scene, camera);
