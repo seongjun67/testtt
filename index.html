@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>3D 똥 디펜스</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Malgun Gothic', sans-serif; user-select: none; background-color: #000; }
+        #canvas-container { width: 100vw; height: 100vh; }
+        
+        .ui-panel {
+            position: absolute;
+            color: white;
+            text-shadow: 2px 2px 4px black;
+            font-weight: bold;
+        }
+        
+        /* Lobby UI */
+        #lobby-ui { top: 20px; left: 20px; z-index: 10; }
+        #gold-display { font-size: 24px; color: #ffd700; background: rgba(0,0,0,0.7); padding: 8px 15px; border-radius: 8px; border: 1px solid #ffd700; }
+        
+        #lobby-guide { 
+            top: 20px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            font-size: 16px; 
+            background: rgba(0,0,0,0.8); 
+            padding: 10px 25px; 
+            border-radius: 12px; 
+            border: 2px solid #00ffff; 
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+            z-index: 10;
+            text-align: center;
+        }
+
+        #team-queue-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 10;
+        }
+        .team-btn {
+            background: linear-gradient(135deg, #00c6ff, #0072ff);
+            color: white;
+            font-weight: bold;
+            font-size: 16px;
+            padding: 12px 20px;
+            border-radius: 10px;
+            border: 2px solid #ffffff;
+            box-shadow: 0 0 15px rgba(0, 114, 255, 0.6);
+            cursor: pointer;
+        }
+        .team-btn:hover { background: linear-gradient(135deg, #0072ff, #00c6ff); }
+
+        .modal {
+            display: none;
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(15, 15, 25, 0.95);
+            border: 2px solid #777;
+            border-radius: 15px;
+            padding: 20px;
+            color: white;
+            z-index: 2000;
+            box-shadow: 0 0 25px rgba(0,0,0,0.9);
+            text-align: center;
+        }
+
+        #gacha-modal { width: 350px; }
+        .rate-list { text-align: left; margin: 15px 0; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; }
+        .rate-item { margin: 5px 0; font-size: 14px; }
+        #gacha-result { margin-top: 10px; font-weight: bold; font-size: 16px; min-height: 24px; color: #00ffff; }
+        
+        #inventory-modal { width: 500px; }
+        .inv-grid { 
+            display: grid; 
+            grid-template-columns: repeat(5, 1fr); 
+            gap: 10px; 
+            margin: 15px 0; 
+            padding: 10px;
+            border: 2px dashed #555;
+            border-radius: 10px;
+            background: rgba(0,0,0,0.3);
+            min-height: 180px;
+            transition: border-color 0.2s, background-color 0.2s;
+        }
+        .inv-grid.drag-over {
+            border-color: #00ffff !important;
+            background-color: rgba(0, 255, 255, 0.1) !important;
+        }
+
+        .inv-slot {
+            width: 80px; height: 95px;
+            background: #222;
+            border: 3px solid #555;
+            border-radius: 8px;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: space-between;
+            font-size: 11px;
+            position: relative;
+            padding: 5px 2px;
+            box-sizing: border-box;
+        }
+        .inv-slot.selected { border-color: #00ffff !important; box-shadow: 0 0 12px #00ffff; }
+
+        .action-btn {
+            background: #444;
+            color: #fff;
+            border: 1px solid #777;
+            border-radius: 4px;
+            font-size: 10px;
+            padding: 2px 4px;
+            cursor: pointer;
+            margin: 1px;
+            width: 90%;
+        }
+        .action-btn.equip { background: #22c55e; }
+        .action-btn.equip:hover { background: #16a34a; }
+
+        .border-normal { border-color: #2ecc71 !important; }
+        .border-big { border-color: #3498db !important; }
+        .border-laser { border-color: #9b59b6 !important; }
+        .border-atomic { border-color: #f1c40f !important; }
+        .border-silver { border-color: #e74c3c !important; }
+        .border-gold { border-color: #ff00ff !important; }
+
+        #battle-ui { display: none; width: 100%; height: 100%; pointer-events: none; z-index: 999; }
+        
+        #battle-top-bar {
+            position: absolute;
+            top: 15px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            pointer-events: auto;
+            background: rgba(5, 5, 12, 0.95); 
+            padding: 12px 25px; 
+            border-radius: 20px; 
+            border: 3px solid #ffd700;
+            display: flex; 
+            gap: 20px; 
+            align-items: center; 
+            text-align: center;
+            box-shadow: 0 0 25px rgba(0, 215, 0, 0.7);
+        }
+
+        .stat-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 18px;
+            font-weight: 900;
+        }
+
+        #global-battle-bar {
+            position: absolute;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(10, 10, 20, 0.95);
+            border: 2px solid #ffd700;
+            border-radius: 16px;
+            padding: 10px 20px 12px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            z-index: 1000;
+            pointer-events: auto;
+        }
+
+        .bar-header { font-size: 13px; color: #ffd700; font-weight: bold; letter-spacing: 1px; }
+        .slot-container { display: flex; gap: 12px; }
+
+        .battle-slot-card {
+            width: 80px; height: 80px;
+            background: rgba(20, 20, 30, 0.9);
+            border: 3px solid #555;
+            border-radius: 10px;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            color: white; font-size: 11px; font-weight: bold;
+            cursor: grab; user-select: none;
+            position: relative;
+        }
+        .battle-slot-card.dragging { opacity: 0.5; }
+
+        #teleport-msg {
+            display: none; position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 36px; color: #00ffff; text-shadow: 0 0 10px #00ffff;
+            background: rgba(0,0,0,0.9); padding: 20px 40px; border-radius: 20px; z-index: 1500;
+        }
+
+        #tower-info-modal {
+            display: none; position: absolute; bottom: 130px; right: 20px;
+            background: rgba(0,0,0,0.9); border: 2px solid #00ffff; padding: 15px;
+            border-radius: 12px; color: white; z-index: 1500; pointer-events: auto;
+            min-width: 180px;
+        }
+
+        button { background: #4CAF50; color: white; border: none; padding: 10px 15px; font-size: 14px; border-radius: 5px; cursor: pointer; margin: 2px; }
+        button:hover { background: #45a049; }
+        .close-btn { background: #f44336; }
+        .close-btn:hover { background: #da190b; }
+        .lobby-return-btn { background: #ff9800; font-weight: bold; }
+        input[type="text"] { padding: 8px; font-size: 16px; border-radius: 5px; border: 1px solid #aaa; text-align: center; width: 150px; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+</head>
+<body onload="init()">
+
+    <div id="canvas-container"></div>
+
+    <div id="lobby-ui" class="ui-panel">
+        <div id="gold-display">골드: <span id="lobby-gold">100</span> G</div>
+        <button onclick="openInventory()" style="pointer-events: auto; margin-top: 10px;">인벤토리 열기</button>
+        <button onclick="openModal('gacha-modal')" style="pointer-events: auto; margin-top: 5px; background: #9b59b6;">💩 똥 뽑기 열기</button>
+        <button onclick="resetData()" style="pointer-events: auto; margin-top: 5px; background: #666;">데이터 초기화</button>
+    </div>
+
+    <div id="team-queue-panel">
+        <button class="team-btn" onclick="openModal('team-modal')">🎮 멀티 대기실</button>
+    </div>
+    
+    <div id="lobby-guide" class="ui-panel">
+        WASD : 캐릭터 이동<br>
+        <b>[갈색 상자]</b> 접촉: 똥 뽑기 열기 / <b>[파란 원형 발판]</b> 접촉: 전투장 텔레포트
+    </div>
+
+    <div id="teleport-msg">전투장으로 이동 중...</div>
+
+    <div id="team-modal" class="modal" style="width: 320px;">
+        <h2>👥 멀티플레이 (PeerJS)</h2>
+        <div style="margin: 20px 0;">
+            <button onclick="createRoom()" style="width: 100%; padding: 12px; margin-bottom: 10px; background: #2196F3;">🏠 방 만들기</button>
+            <button onclick="showJoinInput()" style="width: 100%; padding: 12px; background: #9C27B0;">🚪 방 들어가기</button>
+        </div>
+        <div id="room-created-box" style="display:none; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px;">
+            <div>방 코드:</div>
+            <div id="room-code-display" style="font-size: 32px; color: #00ffff; font-weight: bold; letter-spacing: 5px;">0000</div>
+            <div id="connection-status" style="font-size: 12px; color: #ffeb3b;">대기 중...</div>
+        </div>
+        <div id="room-join-box" style="display:none; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px;">
+            <input type="text" id="join-code-input" maxlength="4" placeholder="4자리 코드">
+            <button onclick="joinRoom()" style="margin-top: 8px;">입장</button>
+        </div>
+        <button class="close-btn" onclick="closeModal('team-modal')" style="margin-top:10px;">닫기</button>
+    </div>
+
+    <div id="gacha-modal" class="modal">
+        <h2>💩 똥 뽑기 (30 골드)</h2>
+        <div class="rate-list">
+            <div class="rate-item" style="color:#2ecc71">일반 똥 : 30.0% (설치비 300G)</div>
+            <div class="rate-item" style="color:#3498db">큰 똥 : 26.5% (설치비 500G)</div>
+            <div class="rate-item" style="color:#9b59b6">레이저 똥 : 20.0% (설치비 700G)</div>
+            <div class="rate-item" style="color:#f1c40f">원자 똥 : 10.0% (설치비 1000G)</div>
+            <div class="rate-item" style="color:#e74c3c">은 똥 : 3.0% (설치비 1300G)</div>
+            <div class="rate-item" style="color:#ff00ff">황금 똥 : 0.5% (설치비 1500G)</div>
+        </div>
+        <div id="gacha-result"></div>
+        <button onclick="drawGacha()" style="background: #e67e22; font-size: 16px; font-weight: bold;">🎲 1회 뽑기 (30G)</button>
+        <button class="close-btn" onclick="closeModal('gacha-modal')">닫기</button>
+    </div>
+
+    <div id="inventory-modal" class="modal">
+        <h2>인벤토리</h2>
+        <div class="inv-grid" id="inv-storage" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDropToInventory(event)"></div>
+        <div style="display: flex; justify-content: center; gap: 5px;">
+            <button onclick="sellSelectedPoop()">선택 아이템 판매 (+10G)</button>
+            <button class="close-btn" onclick="closeModal('inventory-modal')">닫기</button>
+        </div>
+    </div>
+
+    <div id="battle-ui">
+        <div id="battle-top-bar">
+            <div class="stat-badge" style="color: #ff4444;">🏰 성 HP: <span id="castle-hp">10</span></div>
+            <div class="stat-badge" style="color: #00ffff;">⚔️ WAVE: <span id="wave-num">1</span></div>
+            <div class="stat-badge" style="color: #ffd700;">💰 전투 골드: <span id="battle-gold">1000</span>G</div>
+            <div id="timer-display" class="stat-badge" style="color: #ff9900;">⏳ 준비시간: <span id="prep-timer">10</span>초</div>
+            <div id="enemy-display" class="stat-badge" style="display:none; color: #ff4444;">👾 남은 적: <span id="enemy-count">0</span></div>
+            <button class="lobby-return-btn" onclick="exitToLobby()">로비로 돌아가기</button>
+        </div>
+    </div>
+
+    <div id="global-battle-bar">
+        <div class="bar-header">⚔️ 전투 장착 슬롯 (필드로 드래그하여 설치 / 인벤토리로 드래그하여 해제) ⚔️</div>
+        <div class="slot-container" id="global-slots"></div>
+    </div>
+
+    <div id="tower-info-modal">
+        <h3 id="tower-name" style="margin:0 0 10px 0; color:#00ffff;">똥 정보</h3>
+        <div>레벨: Lv.<span id="tower-level">1</span></div>
+        <div>공격력: <span id="tower-damage">0</span></div>
+        <div>사거리: <span id="tower-range">0</span></div>
+        <button id="upgrade-btn" onclick="upgradeSelectedTower()" style="width:100%; margin-top:10px;">강화 (<span id="upgrade-cost">300</span>G)</button>
+        <button class="close-btn" onclick="closeTowerInfo()" style="width:100%; margin-top:5px;">닫기</button>
+    </div>
+
+    <script>
+        const POOP_TYPES = {
+            NORMAL: { type: 'NORMAL', name: '일반 똥', cost: 300, border: 'border-normal', color: 0x2ecc71, bulletColor: 0x2ecc71, range: 7, damage: 25, speed: 800 },
+            BIG:    { type: 'BIG',    name: '큰 똥',   cost: 500, border: 'border-big',    color: 0x3498db, bulletColor: 0x3498db, range: 8, damage: 55, speed: 1000 },
+            LASER:  { type: 'LASER',  name: '레이저 똥', cost: 700, border: 'border-laser',  color: 0x9b59b6, bulletColor: 0x00ffff, range: 12, damage: 35, speed: 200 },
+            ATOMIC: { type: 'ATOMIC', name: '원자 똥', cost: 1000, border: 'border-atomic', color: 0xf1c40f, bulletColor: 0x00ff00, range: 10, damage: 95, speed: 650 },
+            SILVER: { type: 'SILVER', name: '은 똥',   cost: 1300, border: 'border-silver', color: 0xc0c0c0, bulletColor: 0xe0e0e0, range: 13, damage: 180, speed: 500 },
+            GOLD:   { type: 'GOLD',   name: '황금 똥', cost: 1500, border: 'border-gold',   color: 0xffd700, bulletColor: 0xffffd0, range: 16, damage: 450, speed: 300 }
+        };
+
+        let state = {
+            gold: 100,
+            inventory: [],
+            battleDeck: [null, null, null, null, null],
+            selectedInvIndices: [],
+            mode: 'LOBBY',
+            battleGold: 1000,
+            castleHp: 10,
+            wave: 1,
+            prepTime: 10,
+            isPrepPhase: true,
+            selectedTowerInstance: null,
+            towers: [],
+            enemies: [],
+            bullets: [],
+            path: [],
+            isMultiplayer: false
+        };
+
+        let scene, camera, renderer, player, battleFloor;
+        let pathMeshes = [];
+        let gachaZone, teleportZone;
+        let isGachaZoneTriggered = false;
+        let isTeleporting = false;
+        let keys = {};
+        let raycaster = new THREE.Raycaster();
+        let mouse = new THREE.Vector2();
+        let prepTimerInterval = null, waveSpawnInterval = null;
+        let peer = null, conn = null;
+
+        let draggingSlotIndex = null;
+        let draggingPoop = null;
+        let previewTowerMesh = null;
+        let rangeIndicatorMesh = null;
+
+        // bgm.mp3 배경음 설정
+        let bgm = new Audio('assets/sounds/bgm.mp3');
+        bgm.loop = true;
+
+        function playBgm() {
+            bgm.play().catch(e => {});
+        }
+
+        function stopBgm() {
+            bgm.pause();
+            bgm.currentTime = 0;
+        }
+
+        function saveData() {
+            localStorage.setItem('poopTD_saveData', JSON.stringify({
+                gold: state.gold,
+                inventory: state.inventory,
+                battleDeck: state.battleDeck
+            }));
+        }
+
+        function loadData() {
+            const saved = localStorage.getItem('poopTD_saveData');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    state.gold = parsed.gold ?? 100;
+                    state.inventory = parsed.inventory || [];
+                    state.battleDeck = parsed.battleDeck || [null, null, null, null, null];
+                } catch(e) {}
+            } else {
+                for(let i=0; i<5; i++) {
+                    state.battleDeck[i] = { ...POOP_TYPES.NORMAL, id: Date.now() + i };
+                }
+            }
+        }
+
+        function resetData() {
+            if(confirm("데이터를 초기화하시겠습니까?")) {
+                localStorage.removeItem('poopTD_saveData');
+                location.reload();
+            }
+        }
+
+        function openModal(id) { document.getElementById(id).style.display = 'block'; }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        function init() {
+            loadData();
+
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+            window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('click', () => {
+                onCanvasClick();
+                playBgm(); // 클릭 시 BGM 자동 재생 승인
+            });
+
+            window.addEventListener('dragover', onPointerMove);
+            window.addEventListener('drop', onPointerUp);
+
+            buildLobby();
+            animate();
+        }
+
+        function clearScene() {
+            if (prepTimerInterval) clearInterval(prepTimerInterval);
+            if (waveSpawnInterval) clearInterval(waveSpawnInterval);
+            while(scene.children.length > 0) { scene.remove(scene.children[0]); }
+            pathMeshes = [];
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+            scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+            dirLight.position.set(20, 40, 20);
+            scene.add(dirLight);
+        }
+
+        function buildLobby() {
+            clearScene();
+            state.mode = 'LOBBY';
+            playBgm();
+            isGachaZoneTriggered = false;
+            isTeleporting = false;
+            scene.background = new THREE.Color(0x1a1a24);
+
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.MeshStandardMaterial({ color: 0x333344 }));
+            floor.rotation.x = -Math.PI / 2;
+            scene.add(floor);
+
+            player = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.5, 16), new THREE.MeshStandardMaterial({ color: 0x00ffcc }));
+            player.position.set(0, 0.75, 5);
+            scene.add(player);
+
+            gachaZone = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), new THREE.MeshStandardMaterial({ color: 0x8B4513 }));
+            gachaZone.position.set(4, 1, -2);
+            scene.add(gachaZone);
+
+            teleportZone = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 0.2, 32), new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x008888 }));
+            teleportZone.position.set(-4, 0.1, -2);
+            scene.add(teleportZone);
+
+            camera.position.set(0, 10, 12);
+            camera.lookAt(0, 0, 0);
+
+            document.getElementById('lobby-ui').style.display = 'block';
+            document.getElementById('lobby-guide').style.display = 'block';
+            document.getElementById('team-queue-panel').style.display = 'block';
+            document.getElementById('battle-ui').style.display = 'none';
+            closeTowerInfo();
+            updateUI();
+            renderGlobalBattleBar();
+        }
+
+        function triggerTeleport() {
+            if (isTeleporting) return;
+            isTeleporting = true;
+            document.getElementById('teleport-msg').style.display = 'block';
+            setTimeout(() => {
+                document.getElementById('teleport-msg').style.display = 'none';
+                buildBattleField();
+            }, 800);
+        }
+
+        function buildBattleField() {
+            clearScene();
+            playBgm(); // 전투장에서도 동일하게 BGM 계속 재생
+            state.mode = 'BATTLE';
+            scene.background = new THREE.Color(0x111118);
+
+            state.towers = [];
+            state.enemies = [];
+            state.bullets = [];
+            state.wave = 1;
+            state.battleGold = 1000;
+            state.castleHp = 10;
+
+            battleFloor = new THREE.Mesh(new THREE.PlaneGeometry(50, 50), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+            battleFloor.rotation.x = -Math.PI / 2;
+            scene.add(battleFloor);
+
+            state.path = [
+                new THREE.Vector3(-18, 0.1, -12),
+                new THREE.Vector3(10, 0.1, -12),
+                new THREE.Vector3(10, 0.1, 0),
+                new THREE.Vector3(-10, 0.1, 0),
+                new THREE.Vector3(-10, 0.1, 12),
+                new THREE.Vector3(18, 0.1, 12)
+            ];
+
+            for(let i=0; i<state.path.length-1; i++) {
+                const p1 = state.path[i], p2 = state.path[i+1];
+                const dx = p2.x - p1.x, dz = p2.z - p1.z;
+                const len = Math.sqrt(dx*dx + dz*dz);
+                const pathMesh = new THREE.Mesh(new THREE.PlaneGeometry(len, 3), new THREE.MeshBasicMaterial({ color: 0x554433 }));
+                pathMesh.rotation.x = -Math.PI / 2;
+                pathMesh.position.set((p1.x+p2.x)/2, 0.11, (p1.z+p2.z)/2);
+                if(dx === 0) pathMesh.rotation.z = Math.PI / 2;
+                scene.add(pathMesh);
+                pathMeshes.push(pathMesh);
+            }
+
+            const endNode = state.path[state.path.length - 1];
+            const castle = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 3), new THREE.MeshStandardMaterial({ color: 0xff3333 }));
+            castle.position.set(endNode.x, 1.5, endNode.z);
+            scene.add(castle);
+
+            camera.position.set(0, 28, 18);
+            camera.lookAt(0, 0, 0);
+
+            document.getElementById('lobby-ui').style.display = 'none';
+            document.getElementById('lobby-guide').style.display = 'none';
+            document.getElementById('team-queue-panel').style.display = 'none';
+            document.getElementById('battle-ui').style.display = 'block';
+
+            renderGlobalBattleBar();
+            startPrepPhase();
+        }
+
+        function drawGacha() {
+            if (state.gold < 30) return alert("골드가 부족합니다!");
+            if (state.inventory.length >= 10) return alert("인벤토리가 가득 찼습니다!");
+
+            state.gold -= 30;
+            const rand = Math.random();
+            let result = POOP_TYPES.NORMAL;
+
+            if (rand < 0.005) result = POOP_TYPES.GOLD;
+            else if (rand < 0.035) result = POOP_TYPES.SILVER;
+            else if (rand < 0.135) result = POOP_TYPES.ATOMIC;
+            else if (rand < 0.335) result = POOP_TYPES.LASER;
+            else if (rand < 0.600) result = POOP_TYPES.BIG;
+
+            const newItem = { ...result, id: Date.now() + Math.random() };
+            state.inventory.push(newItem);
+
+            saveData();
+            updateUI();
+            renderGlobalBattleBar();
+
+            document.getElementById('gacha-result').innerText = `🎉 [${result.name}] 인벤토리 획득!`;
+        }
+
+        function openInventory() {
+            openModal('inventory-modal');
+            renderInventorySlots();
+        }
+
+        function renderInventorySlots() {
+            const container = document.getElementById('inv-storage');
+            container.innerHTML = '';
+
+            for (let i = 0; i < 10; i++) {
+                const item = state.inventory[i];
+                const slot = document.createElement('div');
+                const isSelected = state.selectedInvIndices.includes(i);
+                
+                slot.className = `inv-slot ${item ? item.border : ''} ${isSelected ? 'selected' : ''}`;
+                if (item) {
+                    slot.innerHTML = `<div>${item.name}</div>`;
+                    
+                    const btnContainer = document.createElement('div');
+                    btnContainer.style.width = '100%';
+                    btnContainer.style.display = 'flex';
+                    btnContainer.style.flexDirection = 'column';
+                    btnContainer.style.alignItems = 'center';
+
+                    const equipBtn = document.createElement('button');
+                    equipBtn.className = 'action-btn equip';
+                    equipBtn.innerText = '장착';
+                    equipBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        equipItemToBattleDeck(i);
+                    };
+
+                    const selectBtn = document.createElement('button');
+                    selectBtn.className = `action-btn ${isSelected ? 'active' : ''}`;
+                    selectBtn.innerText = isSelected ? '선택됨' : '선택';
+                    selectBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        if (isSelected) state.selectedInvIndices = state.selectedInvIndices.filter(idx => idx !== i);
+                        else state.selectedInvIndices.push(i);
+                        renderInventorySlots();
+                    };
+
+                    btnContainer.appendChild(equipBtn);
+                    btnContainer.appendChild(selectBtn);
+                    slot.appendChild(btnContainer);
+                }
+                container.appendChild(slot);
+            }
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        function handleDropToInventory(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+
+            if (draggingSlotIndex !== null && state.battleDeck[draggingSlotIndex]) {
+                if (state.inventory.length >= 10) {
+                    alert("인벤토리가 가득 찼습니다!");
+                    return;
+                }
+
+                const item = state.battleDeck[draggingSlotIndex];
+                state.battleDeck[draggingSlotIndex] = null;
+                state.inventory.push(item);
+
+                draggingSlotIndex = null;
+                draggingPoop = null;
+
+                saveData();
+                renderGlobalBattleBar();
+                renderInventorySlots();
+            }
+        }
+
+        function equipItemToBattleDeck(invIndex) {
+            const item = state.inventory[invIndex];
+            if (!item) return;
+
+            const emptyIdx = state.battleDeck.findIndex(slot => slot === null);
+            if (emptyIdx === -1) {
+                return alert("전투 장착 슬롯이 가득 찼습니다!");
+            }
+
+            state.battleDeck[emptyIdx] = item;
+            state.inventory.splice(invIndex, 1);
+            state.selectedInvIndices = state.selectedInvIndices.filter(idx => idx !== invIndex);
+
+            saveData();
+            renderGlobalBattleBar();
+            renderInventorySlots();
+        }
+
+        function sellSelectedPoop() {
+            if (state.selectedInvIndices.length === 0) return alert("선택된 아이템이 없습니다.");
+            state.selectedInvIndices.sort((a, b) => b - a).forEach(idx => {
+                const item = state.inventory[idx];
+                if (item) {
+                    state.gold += 10;
+                    state.inventory.splice(idx, 1);
+                }
+            });
+            state.selectedInvIndices = [];
+            saveData();
+            updateUI();
+            renderInventorySlots();
+        }
+
+        function renderGlobalBattleBar() {
+            const bar = document.getElementById('global-slots');
+            bar.innerHTML = '';
+
+            for (let i = 0; i < 5; i++) {
+                const poop = state.battleDeck[i];
+                const card = document.createElement('div');
+                card.className = `battle-slot-card ${poop ? poop.border : ''}`;
+
+                if (poop) {
+                    card.innerHTML = `<div class="slot-num">슬롯 ${i+1}</div><div>${poop.name}</div><div style="color:#ffd700">${poop.cost}G</div>`;
+                    card.draggable = true;
+                    
+                    card.addEventListener('dragstart', (e) => {
+                        draggingSlotIndex = i;
+                        draggingPoop = poop;
+                        card.classList.add('dragging');
+                        
+                        if (state.mode === 'BATTLE' && !previewTowerMesh) {
+                            previewTowerMesh = new THREE.Mesh(
+                                new THREE.CylinderGeometry(0.6, 0.8, 1.2, 16),
+                                new THREE.MeshBasicMaterial({ color: poop.color, transparent: true, opacity: 0.5 })
+                            );
+                            previewTowerMesh.visible = false;
+                            scene.add(previewTowerMesh);
+                        }
+                    });
+
+                    card.addEventListener('dragend', () => {
+                        card.classList.remove('dragging');
+                        if (previewTowerMesh) {
+                            scene.remove(previewTowerMesh);
+                            previewTowerMesh = null;
+                        }
+                        draggingSlotIndex = null;
+                        draggingPoop = null;
+                    });
+                } else {
+                    card.innerHTML = `<div class="slot-num">슬롯 ${i+1}</div><div style="color:#666">비어있음</div>`;
+                }
+                bar.appendChild(card);
+            }
+        }
+
+        function onPointerMove(e) {
+            e.preventDefault();
+            if (!draggingPoop || state.mode !== 'BATTLE' || !previewTowerMesh) return;
+
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            const pathIntersects = raycaster.intersectObjects(pathMeshes);
+            if (pathIntersects.length > 0) {
+                previewTowerMesh.visible = false;
+                return;
+            }
+
+            const intersects = raycaster.intersectObject(battleFloor);
+            if (intersects.length > 0) {
+                previewTowerMesh.position.copy(intersects[0].point);
+                previewTowerMesh.position.y = 0.6;
+                previewTowerMesh.visible = true;
+            } else {
+                previewTowerMesh.visible = false;
+            }
+        }
+
+        function onPointerUp(e) {
+            e.preventDefault();
+            if (!draggingPoop || state.mode !== 'BATTLE') return;
+
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            const pathIntersects = raycaster.intersectObjects(pathMeshes);
+            if (pathIntersects.length > 0) {
+                alert("도로 위에는 설치할 수 없습니다!");
+                cleanupDrag();
+                return;
+            }
+
+            const intersects = raycaster.intersectObject(battleFloor);
+            if (intersects.length > 0) {
+                if (state.battleGold >= draggingPoop.cost) {
+                    state.battleGold -= draggingPoop.cost;
+                    updateUI();
+                    spawnTower(intersects[0].point, draggingPoop);
+                } else {
+                    alert("골드가 부족합니다!");
+                }
+            }
+
+            cleanupDrag();
+        }
+
+        function cleanupDrag() {
+            draggingPoop = null;
+            draggingSlotIndex = null;
+            if (previewTowerMesh) {
+                scene.remove(previewTowerMesh);
+                previewTowerMesh = null;
+            }
+        }
+
+        function spawnTower(pos, poop) {
+            const mesh = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.6, 0.8, 1.2, 16),
+                new THREE.MeshStandardMaterial({ color: poop.color })
+            );
+            mesh.position.set(pos.x, 0.6, pos.z);
+            scene.add(mesh);
+
+            const tower = {
+                mesh: mesh,
+                type: poop.type,
+                name: poop.name,
+                damage: poop.damage,
+                range: poop.range,
+                speed: poop.speed,
+                bulletColor: poop.bulletColor,
+                level: 1,
+                lastShot: 0
+            };
+            mesh.userData = tower;
+            state.towers.push(tower);
+        }
+
+        function onCanvasClick() {
+            if (state.mode !== 'BATTLE') return;
+
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            const towerMeshes = state.towers.map(t => t.mesh);
+            const intersects = raycaster.intersectObjects(towerMeshes);
+
+            if (intersects.length > 0) {
+                const tower = intersects[0].object.userData;
+                selectTower(tower);
+            } else {
+                closeTowerInfo();
+            }
+        }
+
+        function selectTower(tower) {
+            state.selectedTowerInstance = tower;
+            document.getElementById('tower-name').innerText = tower.name;
+            document.getElementById('tower-level').innerText = tower.level;
+            document.getElementById('tower-damage').innerText = tower.damage;
+            document.getElementById('tower-range').innerText = tower.range;
+            document.getElementById('upgrade-cost').innerText = tower.level * 300;
+            document.getElementById('tower-info-modal').style.display = 'block';
+
+            if (rangeIndicatorMesh) scene.remove(rangeIndicatorMesh);
+            rangeIndicatorMesh = new THREE.Mesh(
+                new THREE.RingGeometry(tower.range - 0.1, tower.range, 32),
+                new THREE.MeshBasicMaterial({ color: 0x00ffff, side: THREE.DoubleSide })
+            );
+            rangeIndicatorMesh.rotation.x = -Math.PI / 2;
+            rangeIndicatorMesh.position.copy(tower.mesh.position);
+            rangeIndicatorMesh.position.y = 0.15;
+            scene.add(rangeIndicatorMesh);
+        }
+
+        function upgradeSelectedTower() {
+            if (!state.selectedTowerInstance) return;
+            const cost = state.selectedTowerInstance.level * 300;
+            if (state.battleGold < cost) return alert("골드가 부족합니다!");
+
+            state.battleGold -= cost;
+            state.selectedTowerInstance.level++;
+            state.selectedTowerInstance.damage = Math.round(state.selectedTowerInstance.damage * 1.3);
+            state.selectedTowerInstance.range += 0.5;
+
+            selectTower(state.selectedTowerInstance);
+            updateUI();
+        }
+
+        function closeTowerInfo() {
+            state.selectedTowerInstance = null;
+            document.getElementById('tower-info-modal').style.display = 'none';
+            if (rangeIndicatorMesh) {
+                scene.remove(rangeIndicatorMesh);
+                rangeIndicatorMesh = null;
+            }
+        }
+
+        function startPrepPhase() {
+            state.isPrepPhase = true;
+            state.prepTime = 10;
+            document.getElementById('timer-display').style.display = 'flex';
+            document.getElementById('enemy-display').style.display = 'none';
+            document.getElementById('prep-timer').innerText = state.prepTime;
+
+            prepTimerInterval = setInterval(() => {
+                state.prepTime--;
+                document.getElementById('prep-timer').innerText = state.prepTime;
+                if (state.prepTime <= 0) {
+                    clearInterval(prepTimerInterval);
+                    startWavePhase();
+                }
+            }, 1000);
+        }
+
+        function startWavePhase() {
+            state.isPrepPhase = false;
+            document.getElementById('timer-display').style.display = 'none';
+            document.getElementById('enemy-display').style.display = 'flex';
+
+            let count = 5 + state.wave * 3;
+            let spawned = 0;
+            document.getElementById('enemy-count').innerText = count;
+
+            waveSpawnInterval = setInterval(() => {
+                if (spawned < count) {
+                    spawnEnemy();
+                    spawned++;
+                } else {
+                    clearInterval(waveSpawnInterval);
+                }
+            }, 1000);
+        }
+
+        function spawnEnemy() {
+            const mesh = new THREE.Mesh(
+                new THREE.SphereGeometry(0.6, 16, 16),
+                new THREE.MeshStandardMaterial({ color: 0xff0055 })
+            );
+            mesh.position.copy(state.path[0]);
+            mesh.position.y = 0.6;
+            scene.add(mesh);
+
+            // 적 능력치 상향 조정 (체력 및 이동속도 증가)
+            const hp = 100 + state.wave * 60;
+            state.enemies.push({
+                mesh: mesh,
+                hp: hp,
+                maxHp: hp,
+                speed: 0.065 + state.wave * 0.008,
+                pathIdx: 0
+            });
+        }
+
+        function exitToLobby() {
+            buildLobby();
+        }
+
+        function updateUI() {
+            document.getElementById('lobby-gold').innerText = state.gold;
+            document.getElementById('battle-gold').innerText = state.battleGold;
+            document.getElementById('castle-hp').innerText = state.castleHp;
+            document.getElementById('wave-num').innerText = state.wave;
+        }
+
+        function createRoom() {
+            const code = Math.floor(1000 + Math.random() * 9000).toString();
+            peer = new Peer('pooptd-' + code);
+            
+            document.getElementById('room-created-box').style.display = 'block';
+            document.getElementById('room-code-display').innerText = code;
+            
+            peer.on('open', id => {
+                document.getElementById('connection-status').innerText = "상대방 접속 대기 중...";
+            });
+
+            peer.on('connection', c => {
+                conn = c;
+                setupConnection();
+            });
+        }
+
+        function showJoinInput() {
+            document.getElementById('room-join-box').style.display = 'block';
+        }
+
+        function joinRoom() {
+            const code = document.getElementById('join-code-input').value;
+            if (!code) return alert("코드를 입력하세요.");
+            
+            peer = new Peer();
+            peer.on('open', id => {
+                conn = peer.connect('pooptd-' + code);
+                setupConnection();
+            });
+        }
+
+        function setupConnection() {
+            state.isMultiplayer = true;
+            conn.on('open', () => {
+                alert("멀티플레이어 연결 성공!");
+                closeModal('team-modal');
+            });
+
+            conn.on('data', data => {
+                if (data.type === 'SYNC_TOWER') {
+                    spawnTower(data.pos, data.poop);
+                }
+            });
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const now = Date.now();
+
+            if (state.mode === 'LOBBY' && player) {
+                const speed = 0.15;
+                if (keys['w'] || keys['ㅈ']) player.position.z -= speed;
+                if (keys['s'] || keys['ㄴ']) player.position.z += speed;
+                if (keys['a'] || keys['ㅁ']) player.position.x -= speed;
+                if (keys['d'] || keys['ㅇ']) player.position.x += speed;
+
+                camera.position.x = player.position.x;
+                camera.position.z = player.position.z + 7;
+
+                if (player.position.distanceTo(gachaZone.position) < 2) {
+                    if (!isGachaZoneTriggered) {
+                        isGachaZoneTriggered = true;
+                        openModal('gacha-modal');
+                    }
+                } else {
+                    isGachaZoneTriggered = false;
+                }
+
+                if (player.position.distanceTo(teleportZone.position) < 2) {
+                    triggerTeleport();
+                }
+            }
+
+            if (state.mode === 'BATTLE') {
+                // Enemies Movement
+                for (let i = state.enemies.length - 1; i >= 0; i--) {
+                    const e = state.enemies[i];
+                    const target = state.path[e.pathIdx + 1];
+
+                    if (target) {
+                        const dir = new THREE.Vector3().subVectors(target, e.mesh.position);
+                        dir.y = 0;
+                        if (dir.length() < e.speed) {
+                            e.pathIdx++;
+                        } else {
+                            dir.normalize();
+                            e.mesh.position.add(dir.multiplyScalar(e.speed));
+                        }
+                    } else {
+                        scene.remove(e.mesh);
+                        state.enemies.splice(i, 1);
+                        state.castleHp--;
+                        updateUI();
+
+                        if (state.castleHp <= 0) {
+                            alert("성이 파괴되었습니다! 게임 오버");
+                            buildLobby();
+                            return;
+                        }
+                    }
+                }
+
+                // Towers Attack
+                state.towers.forEach(t => {
+                    if (now - t.lastShot >= t.speed) {
+                        let target = null;
+                        let minDist = t.range;
+
+                        state.enemies.forEach(e => {
+                            const d = t.mesh.position.distanceTo(e.mesh.position);
+                            if (d < minDist) {
+                                minDist = d;
+                                target = e;
+                            }
+                        });
+
+                        if (target) {
+                            t.lastShot = now;
+                            const bulletMesh = new THREE.Mesh(
+                                new THREE.SphereGeometry(0.2, 8, 8),
+                                new THREE.MeshBasicMaterial({ color: t.bulletColor })
+                            );
+                            bulletMesh.position.copy(t.mesh.position);
+                            bulletMesh.position.y = 1.0;
+                            scene.add(bulletMesh);
+
+                            state.bullets.push({
+                                mesh: bulletMesh,
+                                target: target,
+                                damage: t.damage,
+                                speed: 0.4
+                            });
+                        }
+                    }
+                });
+
+                // Bullets Update
+                for (let i = state.bullets.length - 1; i >= 0; i--) {
+                    const b = state.bullets[i];
+                    if (!state.enemies.includes(b.target)) {
+                        scene.remove(b.mesh);
+                        state.bullets.splice(i, 1);
+                        continue;
+                    }
+
+                    const dir = new THREE.Vector3().subVectors(b.target.mesh.position, b.mesh.position);
+                    if (dir.length() < b.speed) {
+                        b.target.hp -= b.damage;
+                        scene.remove(b.mesh);
+                        state.bullets.splice(i, 1);
+
+                        if (b.target.hp <= 0) {
+                            const idx = state.enemies.indexOf(b.target);
+                            if (idx > -1) {
+                                scene.remove(b.target.mesh);
+                                state.enemies.splice(idx, 1);
+                                state.battleGold += 50; // 적 처치 시 전투 코인 +50G
+                                updateUI();
+                            }
+                        }
+                    } else {
+                        dir.normalize();
+                        b.mesh.position.add(dir.multiplyScalar(b.speed));
+                    }
+                }
+
+                // Wave Clear Check 4234234
+                if (!state.isPrepPhase && state.enemies.length === 0) {
+                    state.wave++;
+                    state.battleGold += 200;
+                    state.gold += 30; // 1웨이브 클리어 시 로비 코인 +30G
+                    saveData(); // 증가한 로비 코인 저장
+                    updateUI();
+                    startPrepPhase();
+                }
+
+                document.getElementById('enemy-count').innerText = state.enemies.length;
+            }
+
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
