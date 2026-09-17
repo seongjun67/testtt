@@ -128,7 +128,6 @@
         .border-silver { border-color: #e74c3c !important; }
         .border-gold { border-color: #ff00ff !important; }
 
-        /* 난이도 선택 스타일 추가 */
         .diff-btn {
             width: 100%;
             padding: 12px;
@@ -239,7 +238,6 @@
             cursor: grab; user-select: none;
             position: relative;
         }
-        .battle-slot-card.dragging { opacity: 0.5; }
 
         #teleport-msg {
             display: none; position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
@@ -288,14 +286,14 @@
 
     <div id="teleport-msg">전투장으로 이동 중...</div>
 
-    <!-- 난이도 선택 모달 추가 -->
+    <!-- 난이도 선택 모달 -->
     <div id="difficulty-modal" class="modal" style="width: 320px;">
         <h2>⚔️ 난이도 선택</h2>
         <p style="font-size: 13px; color: #aaa; margin-bottom: 15px;">전투 난이도를 선택해 주세요.</p>
-        <button class="diff-btn diff-easy" onclick="selectDifficulty('EASY')">🌱 쉬움 (적 HP 70%, 골드 +30%)</button>
-        <button class="diff-btn diff-normal" onclick="selectDifficulty('NORMAL')">⚔️ 보통 (기본 난이도)</button>
-        <button class="diff-btn diff-hard" onclick="selectDifficulty('HARD')">🔥 어려움 (적 HP 150%, 골드 -20%)</button>
-        <button class="diff-btn diff-hell" onclick="selectDifficulty('HELL')">💀 지옥 (적 HP 250%, 속도 +30%)</button>
+        <button class="diff-btn diff-easy" onclick="selectDifficulty('EASY')">🌱 쉬움 (보상 +10G / 1웨이브)</button>
+        <button class="diff-btn diff-normal" onclick="selectDifficulty('NORMAL')">⚔️ 보통 (보상 +20G / 1웨이브)</button>
+        <button class="diff-btn diff-hard" onclick="selectDifficulty('HARD')">🔥 어려움 (보상 +35G / 1웨이브)</button>
+        <button class="diff-btn diff-hell" onclick="selectDifficulty('HELL')">💀 지옥 (보상 +50G / 1웨이브)</button>
         <button class="close-btn" onclick="closeModal('difficulty-modal')" style="margin-top:10px; width: 100%;">취소</button>
     </div>
 
@@ -425,12 +423,12 @@
             GOLD:   { type: 'GOLD',   name: '황금 똥', cost: 1500, border: 'border-gold',   color: 0xffd700, bulletColor: 0xffffd0, range: 12, damage: 220, speed: 450 }
         };
 
-        // 난이도 설정 데이터
+        // 난이도 설정 데이터 (요구사항: 난이도별 1웨이브 당 코인 수 추가)
         const DIFFICULTY_SETTINGS = {
-            EASY:   { name: '쉬움', hpMult: 0.7, speedMult: 0.85, goldMult: 1.3, castleHp: 15 },
-            NORMAL: { name: '보통', hpMult: 1.0, speedMult: 1.0,  goldMult: 1.0, castleHp: 10 },
-            HARD:   { name: '어려움', hpMult: 1.5, speedMult: 1.15, goldMult: 0.8, castleHp: 7 },
-            HELL:   { name: '지옥', hpMult: 2.5, speedMult: 1.3,  goldMult: 0.6, castleHp: 5 }
+            EASY:   { name: '쉬움', hpMult: 0.7, speedMult: 0.85, goldMult: 1.3, castleHp: 15, waveReward: 10 },
+            NORMAL: { name: '보통', hpMult: 1.0, speedMult: 1.0,  goldMult: 1.0, castleHp: 10, waveReward: 20 },
+            HARD:   { name: '어려움', hpMult: 1.5, speedMult: 1.15, goldMult: 0.8, castleHp: 7,  waveReward: 35 },
+            HELL:   { name: '지옥', hpMult: 2.5, speedMult: 1.3,  goldMult: 0.6, castleHp: 5,  waveReward: 50 }
         };
 
         let state = {
@@ -613,7 +611,7 @@
         function triggerTeleport() {
             if (isTeleporting) return;
             isTeleporting = true;
-            openModal('difficulty-modal'); // 난이도 선택 모달 띄우기
+            openModal('difficulty-modal');
         }
 
         function selectDifficulty(diffKey) {
@@ -731,7 +729,7 @@
                 
                 slot.className = `inv-slot ${item ? item.border : ''} ${isSelected ? 'selected' : ''}`;
                 if (item) {
-                    slot.innerHTML = `<div>${item.name}</div>`;
+                    slot.innerHTML = `<div style="font-weight:bold; margin-top:2px;">${item.name}</div>`;
                     
                     const btnContainer = document.createElement('div');
                     btnContainer.style.width = '100%';
@@ -742,91 +740,53 @@
                     const equipBtn = document.createElement('button');
                     equipBtn.className = 'action-btn equip';
                     equipBtn.innerText = '장착';
-                    equipBtn.onclick = (e) => {
-                        e.stopPropagation();
-                        equipItemToBattleDeck(i);
-                    };
-
-                    const selectBtn = document.createElement('button');
-                    selectBtn.className = `action-btn ${isSelected ? 'active' : ''}`;
-                    selectBtn.innerText = isSelected ? '선택됨' : '선택';
-                    selectBtn.onclick = (e) => {
-                        e.stopPropagation();
-                        if (isSelected) state.selectedInvIndices = state.selectedInvIndices.filter(idx => idx !== i);
-                        else state.selectedInvIndices.push(i);
-                        renderInventorySlots();
-                    };
+                    equipBtn.onclick = (e) => { e.stopPropagation(); equipItemToDeck(i); };
 
                     btnContainer.appendChild(equipBtn);
-                    btnContainer.appendChild(selectBtn);
                     slot.appendChild(btnContainer);
+
+                    slot.onclick = () => {
+                        if (state.selectedInvIndices.includes(i)) {
+                            state.selectedInvIndices = state.selectedInvIndices.filter(idx => idx !== i);
+                        } else {
+                            state.selectedInvIndices.push(i);
+                        }
+                        renderInventorySlots();
+                    };
+                } else {
+                    slot.innerHTML = `<span style="color:#555; margin-auto;">빈 슬롯</span>`;
                 }
                 container.appendChild(slot);
             }
         }
 
-        function handleDragOver(e) {
-            e.preventDefault();
-            e.currentTarget.classList.add('drag-over');
-        }
+        function equipItemToDeck(invIdx) {
+            const emptyDeckIdx = state.battleDeck.findIndex(d => d === null);
+            if (emptyDeckIdx === -1) return alert("장착 슬롯이 가득 찼습니다!");
+            
+            state.battleDeck[emptyDeckIdx] = state.inventory[invIdx];
+            state.inventory.splice(invIdx, 1);
+            state.selectedInvIndices = state.selectedInvIndices.filter(idx => idx !== invIdx);
 
-        function handleDragLeave(e) {
-            e.currentTarget.classList.remove('drag-over');
-        }
-
-        function handleDropToInventory(e) {
-            e.preventDefault();
-            e.currentTarget.classList.remove('drag-over');
-
-            if (draggingSlotIndex !== null && state.battleDeck[draggingSlotIndex]) {
-                if (state.inventory.length >= 10) {
-                    alert("인벤토리가 가득 찼습니다!");
-                    return;
-                }
-
-                const item = state.battleDeck[draggingSlotIndex];
-                state.battleDeck[draggingSlotIndex] = null;
-                state.inventory.push(item);
-
-                draggingSlotIndex = null;
-                draggingPoop = null;
-
-                saveData();
-                renderGlobalBattleBar();
-                renderInventorySlots();
-            }
-        }
-
-        function equipItemToBattleDeck(invIndex) {
-            const item = state.inventory[invIndex];
-            if (!item) return;
-
-            const emptyIdx = state.battleDeck.findIndex(slot => slot === null);
-            if (emptyIdx === -1) {
-                alert("전투 장착 슬롯이 가득 찼습니다! 기존 슬롯을 비워주세요.");
-                return;
-            }
-
-            state.battleDeck[emptyIdx] = item;
-            state.inventory.splice(invIndex, 1);
             saveData();
-            renderGlobalBattleBar();
             renderInventorySlots();
+            renderGlobalBattleBar();
         }
 
         function sellSelectedPoop() {
-            if (state.selectedInvIndices.length === 0) return alert("판매할 아이템을 선택해주세요.");
+            if (state.selectedInvIndices.length === 0) return alert("판매할 아이템을 선택하세요.");
             
-            state.selectedInvIndices.sort((a,b) => b-a);
+            state.selectedInvIndices.sort((a,b) => b - a);
             state.selectedInvIndices.forEach(idx => {
                 state.inventory.splice(idx, 1);
                 state.gold += 10;
             });
-
             state.selectedInvIndices = [];
+
             saveData();
             updateUI();
             renderInventorySlots();
+            renderGlobalBattleBar();
         }
 
         function renderGlobalBattleBar() {
@@ -834,60 +794,56 @@
             container.innerHTML = '';
 
             for (let i = 0; i < 5; i++) {
-                const item = state.battleDeck[i];
+                const poop = state.battleDeck[i];
                 const card = document.createElement('div');
-                card.className = `battle-slot-card ${item ? item.border : ''}`;
+                card.className = `battle-slot-card ${poop ? poop.border : ''}`;
                 
-                if (item) {
-                    card.innerHTML = `
-                        <div style="font-size:12px; margin-bottom: 2px;">${item.name}</div>
-                        <div style="font-size:10px; color:#ffd700;">${item.cost}G</div>
-                    `;
+                if (poop) {
                     card.draggable = true;
-
+                    card.innerHTML = `
+                        <div style="font-size:12px; margin-bottom:2px;">${poop.name}</div>
+                        <div style="color:#ffd700; font-size:10px;">${poop.cost}G</div>
+                    `;
                     card.ondragstart = (e) => {
                         draggingSlotIndex = i;
-                        draggingPoop = item;
+                        draggingPoop = poop;
                         card.classList.add('dragging');
-                        createPlacementPreview(item);
                     };
-
-                    card.ondragend = (e) => {
+                    card.ondragend = () => {
                         card.classList.remove('dragging');
-                        removePlacementPreview();
+                        clearPreviewTower();
                     };
+                    card.onclick = () => { unequipDeckItem(i); };
                 } else {
-                    card.innerHTML = `<span style="color:#555;">[빈 슬롯]</span>`;
+                    card.innerHTML = `<span style="color:#555;">빈 슬롯</span>`;
                 }
-
                 container.appendChild(card);
             }
         }
 
-        function createPlacementPreview(poopData) {
-            removePlacementPreview();
+        function unequipDeckItem(slotIdx) {
+            if (!state.battleDeck[slotIdx]) return;
+            if (state.inventory.length >= 10) return alert("인벤토리가 가득 찼습니다!");
 
-            const geom = new THREE.CylinderGeometry(0.8, 1, 1.2, 16);
-            const mat = new THREE.MeshStandardMaterial({ 
-                color: poopData.color, 
-                transparent: true, 
-                opacity: 0.5 
-            });
-            previewTowerMesh = new THREE.Mesh(geom, mat);
-            previewTowerMesh.visible = false;
-            scene.add(previewTowerMesh);
+            state.inventory.push(state.battleDeck[slotIdx]);
+            state.battleDeck[slotIdx] = null;
 
-            const ringGeom = new THREE.RingGeometry(poopData.range - 0.1, poopData.range, 32);
-            const ringMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, side: THREE.DoubleSide, transparent: true, opacity: 0.4 });
-            rangeIndicatorMesh = new THREE.Mesh(ringGeom, ringMat);
-            rangeIndicatorMesh.rotation.x = -Math.PI / 2;
-            rangeIndicatorMesh.visible = false;
-            scene.add(rangeIndicatorMesh);
+            saveData();
+            renderGlobalBattleBar();
+            if (document.getElementById('inventory-modal').style.display === 'block') {
+                renderInventorySlots();
+            }
         }
 
-        function removePlacementPreview() {
-            if (previewTowerMesh) { scene.remove(previewTowerMesh); previewTowerMesh = null; }
-            if (rangeIndicatorMesh) { scene.remove(rangeIndicatorMesh); rangeIndicatorMesh = null; }
+        function handleDragOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+        function handleDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+        function handleDropToInventory(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            if (draggingSlotIndex !== null) {
+                unequipDeckItem(draggingSlotIndex);
+                draggingSlotIndex = null;
+            }
         }
 
         function onPointerMove(e) {
@@ -900,30 +856,34 @@
             const intersects = raycaster.intersectObject(battleFloor);
 
             if (intersects.length > 0) {
-                const pt = intersects[0].point;
-                const pos = new THREE.Vector3(Math.round(pt.x), 0.6, Math.round(pt.z));
-
-                if (previewTowerMesh && rangeIndicatorMesh) {
-                    previewTowerMesh.position.copy(pos);
-                    rangeIndicatorMesh.position.set(pos.x, 0.12, pos.z);
-
-                    const isValid = checkValidPlacement(pos);
-                    previewTowerMesh.material.color.setHex(isValid ? draggingPoop.color : 0xff0000);
-                    previewTowerMesh.visible = true;
-                    rangeIndicatorMesh.visible = true;
-                }
+                const point = intersects[0].point;
+                updatePreviewTower(point, draggingPoop);
             }
         }
 
-        function checkValidPlacement(pos) {
-            for (let pm of pathMeshes) {
-                const box = new THREE.Box3().setFromObject(pm);
-                if (box.containsPoint(pos)) return false;
+        function updatePreviewTower(pos, poop) {
+            if (!previewTowerMesh) {
+                previewTowerMesh = new THREE.Mesh(
+                    new THREE.ConeGeometry(0.8, 1.5, 8),
+                    new THREE.MeshStandardMaterial({ color: poop.color, transparent: true, opacity: 0.6 })
+                );
+                scene.add(previewTowerMesh);
+
+                rangeIndicatorMesh = new THREE.Mesh(
+                    new THREE.RingGeometry(poop.range - 0.1, poop.range, 32),
+                    new THREE.MeshBasicMaterial({ color: 0x00ffff, side: THREE.DoubleSide })
+                );
+                rangeIndicatorMesh.rotation.x = Math.PI / 2;
+                scene.add(rangeIndicatorMesh);
             }
-            for (let t of state.towers) {
-                if (t.mesh.position.distanceTo(pos) < 1.5) return false;
-            }
-            return true;
+
+            previewTowerMesh.position.set(pos.x, 0.75, pos.z);
+            rangeIndicatorMesh.position.set(pos.x, 0.12, pos.z);
+        }
+
+        function clearPreviewTower() {
+            if (previewTowerMesh) { scene.remove(previewTowerMesh); previewTowerMesh = null; }
+            if (rangeIndicatorMesh) { scene.remove(rangeIndicatorMesh); rangeIndicatorMesh = null; }
         }
 
         function onPointerUp(e) {
@@ -936,47 +896,52 @@
             const intersects = raycaster.intersectObject(battleFloor);
 
             if (intersects.length > 0) {
-                const pt = intersects[0].point;
-                const pos = new THREE.Vector3(Math.round(pt.x), 0.6, Math.round(pt.z));
-
-                if (checkValidPlacement(pos)) {
-                    placeTower(pos, draggingPoop);
-                }
+                const point = intersects[0].point;
+                placeTower(point, draggingPoop);
             }
-
-            removePlacementPreview();
+            clearPreviewTower();
             draggingPoop = null;
             draggingSlotIndex = null;
         }
 
-        function placeTower(pos, poopData) {
-            if (state.battleGold < poopData.cost) {
-                alert("전투 골드가 부족합니다!");
-                return;
+        function placeTower(pos, poop) {
+            if (state.battleGold < poop.cost) return alert("전투 골드가 부족합니다!");
+
+            let isOnPath = false;
+            for (let mesh of pathMeshes) {
+                const box = new THREE.Box3().setFromObject(mesh);
+                if (box.containsPoint(new THREE.Vector3(pos.x, 0.11, pos.z))) {
+                    isOnPath = true;
+                    break;
+                }
+            }
+            if (isOnPath) return alert("경로 위에는 설치할 수 없습니다!");
+
+            for (let t of state.towers) {
+                if (t.mesh.position.distanceTo(pos) < 1.5) return alert("다른 똥과 너무 가깝습니다!");
             }
 
-            state.battleGold -= poopData.cost;
+            state.battleGold -= poop.cost;
 
             const mesh = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.8, 1, 1.2, 16),
-                new THREE.MeshStandardMaterial({ color: poopData.color })
+                new THREE.ConeGeometry(0.8, 1.5, 8),
+                new THREE.MeshStandardMaterial({ color: poop.color })
             );
-            mesh.position.copy(pos);
+            mesh.position.set(pos.x, 0.75, pos.z);
             scene.add(mesh);
 
-            const tower = {
-                id: Date.now() + Math.random(),
-                data: { ...poopData },
+            const towerInstance = {
+                mesh: mesh,
+                poop: poop,
                 level: 1,
-                damage: poopData.damage,
-                range: poopData.range,
-                speed: poopData.speed,
-                lastShot: 0,
-                mesh: mesh
+                damage: poop.damage,
+                range: poop.range,
+                speed: poop.speed,
+                lastShot: 0
             };
+            mesh.userData = towerInstance;
+            state.towers.push(towerInstance);
 
-            mesh.userData = { tower: tower };
-            state.towers.push(tower);
             updateUI();
         }
 
@@ -985,7 +950,6 @@
             state.prepTime = 10;
             document.getElementById('timer-display').style.display = 'flex';
             document.getElementById('enemy-display').style.display = 'none';
-            document.getElementById('prep-timer').innerText = state.prepTime;
 
             if (prepTimerInterval) clearInterval(prepTimerInterval);
             prepTimerInterval = setInterval(() => {
@@ -993,17 +957,14 @@
                 document.getElementById('prep-timer').innerText = state.prepTime;
                 if (state.prepTime <= 0) {
                     clearInterval(prepTimerInterval);
-                    prepTimerInterval = null;
                     startWavePhase();
                 }
             }, 1000);
         }
 
         function skipPrepPhase() {
-            if (prepTimerInterval) {
-                clearInterval(prepTimerInterval);
-                prepTimerInterval = null;
-            }
+            if (!state.isPrepPhase) return;
+            if (prepTimerInterval) clearInterval(prepTimerInterval);
             startWavePhase();
         }
 
@@ -1013,212 +974,53 @@
             document.getElementById('enemy-display').style.display = 'flex';
 
             const diff = DIFFICULTY_SETTINGS[state.difficulty];
-            state.remainingToSpawn = 8 + state.wave * 4;
-            updateUI();
+            state.remainingToSpawn = 5 + state.wave * 3;
+            let spawned = 0;
 
             if (waveSpawnInterval) clearInterval(waveSpawnInterval);
             waveSpawnInterval = setInterval(() => {
-                if (state.remainingToSpawn > 0) {
-                    spawnEnemy();
-                    state.remainingToSpawn--;
-                    updateUI();
+                if (spawned < state.remainingToSpawn) {
+                    spawnEnemy(diff);
+                    spawned++;
                 } else {
                     clearInterval(waveSpawnInterval);
-                    waveSpawnInterval = null;
                 }
-            }, 1200 / state.gameSpeed);
+            }, 1000 / state.gameSpeed);
         }
 
-        function spawnEnemy() {
-            const diff = DIFFICULTY_SETTINGS[state.difficulty];
-            const enemyGeom = new THREE.SphereGeometry(0.6, 16, 16);
-            const enemyMat = new THREE.MeshStandardMaterial({ color: 0xe74c3c });
-            const mesh = new THREE.Mesh(enemyGeom, enemyMat);
-            
-            const startNode = state.path[0];
-            mesh.position.set(startNode.x, 0.6, startNode.z);
+        function spawnEnemy(diff) {
+            const startPos = state.path[0];
+            const mesh = new THREE.Mesh(
+                new THREE.SphereGeometry(0.6, 16, 16),
+                new THREE.MeshStandardMaterial({ color: 0xff0055 })
+            );
+            mesh.position.copy(startPos);
+            mesh.position.y = 0.6;
             scene.add(mesh);
 
-            // 난이도 배율 적용
-            const baseHp = (60 + state.wave * 35) * diff.hpMult;
-            const baseSpeed = (0.04 + state.wave * 0.003) * diff.speedMult;
-            const reward = Math.round((25 + state.wave * 5) * diff.goldMult);
-
+            const hp = (40 + state.wave * 25) * diff.hpMult;
             const enemy = {
                 mesh: mesh,
-                hp: baseHp,
-                maxHp: baseHp,
-                speed: baseSpeed,
-                pathIndex: 0,
-                rewardGold: reward
+                hp: hp,
+                maxHp: hp,
+                speed: (3 + state.wave * 0.2) * diff.speedMult,
+                pathIndex: 0
             };
-
             state.enemies.push(enemy);
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-
-            const now = performance.now();
-            const delta = (now - lastFrameTime) / 1000;
-            lastFrameTime = now;
-
-            if (state.mode === 'LOBBY') {
-                updateLobbyPlayer();
-            } else if (state.mode === 'BATTLE') {
-                updateBattleGame(delta);
-            }
-
-            renderer.render(scene, camera);
-        }
-
-        function updateLobbyPlayer() {
-            if (!player) return;
-
-            const speed = 0.25;
-            if (keys['w']) player.position.z -= speed;
-            if (keys['s']) player.position.z += speed;
-            if (keys['a']) player.position.x -= speed;
-            if (keys['d']) player.position.x += speed;
-
-            camera.position.x = player.position.x;
-            camera.position.z = player.position.z + 7;
-
-            // 가챠 상자 접촉
-            if (player.position.distanceTo(gachaZone.position) < 1.8) {
-                if (!isGachaZoneTriggered) {
-                    isGachaZoneTriggered = true;
-                    openModal('gacha-modal');
-                }
-            } else {
-                isGachaZoneTriggered = false;
-            }
-
-            // 텔레포트 발판 접촉
-            if (player.position.distanceTo(teleportZone.position) < 2.0) {
-                triggerTeleport();
-            }
-        }
-
-        function updateBattleGame(delta) {
-            const effectiveDelta = delta * state.gameSpeed;
-
-            // 적 이동 로직
-            for (let i = state.enemies.length - 1; i >= 0; i--) {
-                const enemy = state.enemies[i];
-                const targetNode = state.path[enemy.pathIndex + 1];
-
-                if (!targetNode) continue;
-
-                const dir = new THREE.Vector3().subVectors(targetNode, enemy.mesh.position);
-                dir.y = 0;
-                const dist = dir.length();
-
-                if (dist < 0.2) {
-                    enemy.pathIndex++;
-                    if (enemy.pathIndex >= state.path.length - 1) {
-                        // 성 도달
-                        state.castleHp--;
-                        scene.remove(enemy.mesh);
-                        state.enemies.splice(i, 1);
-                        updateUI();
-
-                        if (state.castleHp <= 0) {
-                            alert("🏰 성이 파괴되었습니다! 로비로 돌아갑니다.");
-                            exitToLobby();
-                            return;
-                        }
-                        continue;
-                    }
-                } else {
-                    dir.normalize();
-                    enemy.mesh.position.add(dir.multiplyScalar(enemy.speed * state.gameSpeed));
-                }
-            }
-
-            // 타워 발사 로직
-            const nowTime = performance.now();
-            for (let tower of state.towers) {
-                if (nowTime - tower.lastShot >= (tower.speed / state.gameSpeed)) {
-                    let target = null;
-                    let maxDist = Infinity;
-
-                    for (let enemy of state.enemies) {
-                        const d = tower.mesh.position.distanceTo(enemy.mesh.position);
-                        if (d <= tower.range && d < maxDist) {
-                            maxDist = d;
-                            target = enemy;
-                        }
-                    }
-
-                    if (target) {
-                        shootBullet(tower, target);
-                        tower.lastShot = nowTime;
-                    }
-                }
-            }
-
-            // 총알 이동 로직
-            for (let i = state.bullets.length - 1; i >= 0; i--) {
-                const b = state.bullets[i];
-                if (!b.target || !state.enemies.includes(b.target)) {
-                    scene.remove(b.mesh);
-                    state.bullets.splice(i, 1);
-                    continue;
-                }
-
-                const dir = new THREE.Vector3().subVectors(b.target.mesh.position, b.mesh.position);
-                if (dir.length() < 0.4) {
-                    b.target.hp -= b.damage;
-                    scene.remove(b.mesh);
-                    state.bullets.splice(i, 1);
-
-                    if (b.target.hp <= 0) {
-                        const eIdx = state.enemies.indexOf(b.target);
-                        if (eIdx !== -1) {
-                            state.battleGold += b.target.rewardGold;
-                            scene.remove(b.target.mesh);
-                            state.enemies.splice(eIdx, 1);
-                            updateUI();
-                        }
-                    }
-                } else {
-                    dir.normalize();
-                    b.mesh.position.add(dir.multiplyScalar(0.8 * state.gameSpeed));
-                }
-            }
-
-            // 웨이브 종료 판정
-            if (!state.isPrepPhase && state.remainingToSpawn <= 0 && state.enemies.length === 0) {
-                state.wave++;
-                startPrepPhase();
-            }
-        }
-
-        function shootBullet(tower, target) {
-            const bMesh = new THREE.Mesh(
-                new THREE.SphereGeometry(0.25, 8, 8),
-                new THREE.MeshBasicMaterial({ color: tower.data.bulletColor })
-            );
-            bMesh.position.copy(tower.mesh.position);
-            bMesh.position.y += 0.8;
-            scene.add(bMesh);
-
-            state.bullets.push({
-                mesh: bMesh,
-                target: target,
-                damage: tower.damage
-            });
+            updateUI();
         }
 
         function onCanvasClick() {
             if (state.mode !== 'BATTLE') return;
 
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
             raycaster.setFromCamera(mouse, camera);
             const intersects = raycaster.intersectObjects(state.towers.map(t => t.mesh));
 
             if (intersects.length > 0) {
-                const tower = intersects[0].object.userData.tower;
+                const tower = intersects[0].object.userData;
                 selectTower(tower);
             } else {
                 closeTowerInfo();
@@ -1227,25 +1029,33 @@
 
         function selectTower(tower) {
             state.selectedTowerInstance = tower;
-            document.getElementById('tower-name').innerText = tower.data.name;
+            document.getElementById('tower-name').innerText = tower.poop.name;
             document.getElementById('tower-level').innerText = tower.level;
-            document.getElementById('tower-damage').innerText = tower.damage;
+            document.getElementById('tower-damage').innerText = Math.round(tower.damage);
             document.getElementById('tower-range').innerText = tower.range;
-            document.getElementById('upgrade-cost').innerText = tower.level * 300;
-            document.getElementById('sell-value').innerText = Math.round(tower.data.cost * 0.7);
+            
+            const upCost = Math.round(tower.poop.cost * 0.8 * tower.level);
+            document.getElementById('upgrade-cost').innerText = upCost;
+            document.getElementById('sell-value').innerText = Math.round(tower.poop.cost * 0.5 * tower.level);
+
             document.getElementById('tower-info-modal').style.display = 'block';
+        }
+
+        function closeTowerInfo() {
+            state.selectedTowerInstance = null;
+            document.getElementById('tower-info-modal').style.display = 'none';
         }
 
         function upgradeSelectedTower() {
             const t = state.selectedTowerInstance;
             if (!t) return;
 
-            const cost = t.level * 300;
-            if (state.battleGold < cost) return alert("강화 골드가 부족합니다!");
+            const cost = Math.round(t.poop.cost * 0.8 * t.level);
+            if (state.battleGold < cost) return alert("전투 골드가 부족합니다!");
 
             state.battleGold -= cost;
             t.level++;
-            t.damage = Math.round(t.damage * 1.35);
+            t.damage *= 1.35;
             t.range += 0.5;
 
             selectTower(t);
@@ -1256,7 +1066,7 @@
             const t = state.selectedTowerInstance;
             if (!t) return;
 
-            const val = Math.round(t.data.cost * 0.7);
+            const val = Math.round(t.poop.cost * 0.5 * t.level);
             state.battleGold += val;
 
             scene.remove(t.mesh);
@@ -1266,26 +1076,176 @@
             updateUI();
         }
 
-        function closeTowerInfo() {
-            state.selectedTowerInstance = null;
-            document.getElementById('tower-info-modal').style.display = 'none';
-        }
-
         function exitToLobby() {
             buildLobby();
         }
 
         function updateUI() {
             document.getElementById('lobby-gold').innerText = state.gold;
-            document.getElementById('battle-gold').innerText = state.battleGold;
+            document.getElementById('battle-gold').innerText = Math.round(state.battleGold);
             document.getElementById('castle-hp').innerText = state.castleHp;
             document.getElementById('wave-num').innerText = state.wave;
-            document.getElementById('enemy-count').innerText = state.enemies.length + state.remainingToSpawn;
-            
-            const diffInfo = DIFFICULTY_SETTINGS[state.difficulty];
-            if (diffInfo) {
-                document.getElementById('diff-display').innerText = diffInfo.name;
+            document.getElementById('diff-display').innerText = DIFFICULTY_SETTINGS[state.difficulty].name;
+            document.getElementById('enemy-count').innerText = state.enemies.length;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const now = performance.now();
+            const delta = (now - lastFrameTime) / 1000;
+            lastFrameTime = now;
+
+            if (state.mode === 'LOBBY') {
+                updateLobbyPlayer(delta);
+            } else if (state.mode === 'BATTLE') {
+                updateBattleLogic(delta * state.gameSpeed);
             }
+
+            renderer.render(scene, camera);
+        }
+
+        function updateLobbyPlayer(delta) {
+            if (!player) return;
+            const speed = 8 * delta;
+
+            if (keys['w']) player.position.z -= speed;
+            if (keys['s']) player.position.z += speed;
+            if (keys['a']) player.position.x -= speed;
+            if (keys['d']) player.position.x += speed;
+
+            camera.position.x = player.position.x;
+            camera.position.z = player.position.z + 7;
+            camera.lookAt(player.position.x, 0, player.position.z);
+
+            if (gachaZone && player.position.distanceTo(gachaZone.position) < 1.5) {
+                if (!isGachaZoneTriggered) {
+                    isGachaZoneTriggered = true;
+                    openModal('gacha-modal');
+                }
+            } else {
+                isGachaZoneTriggered = false;
+            }
+
+            if (teleportZone && player.position.distanceTo(teleportZone.position) < 1.5) {
+                triggerTeleport();
+            }
+        }
+
+        function updateBattleLogic(dt) {
+            const now = performance.now();
+
+            // 1. 공격 로직
+            for (let tower of state.towers) {
+                if (now - tower.lastShot >= tower.speed / state.gameSpeed) {
+                    let target = null;
+                    let maxDist = -1;
+
+                    for (let enemy of state.enemies) {
+                        const dist = tower.mesh.position.distanceTo(enemy.mesh.position);
+                        if (dist <= tower.range) {
+                            if (enemy.pathIndex > maxDist) {
+                                maxDist = enemy.pathIndex;
+                                target = enemy;
+                            }
+                        }
+                    }
+
+                    if (target) {
+                        tower.lastShot = now;
+                        createBullet(tower, target);
+                    }
+                }
+            }
+
+            // 2. 총알 처리
+            for (let i = state.bullets.length - 1; i >= 0; i--) {
+                const b = state.bullets[i];
+                if (!b.target || !state.enemies.includes(b.target)) {
+                    scene.remove(b.mesh);
+                    state.bullets.splice(i, 1);
+                    continue;
+                }
+
+                const dir = new THREE.Vector3().subVectors(b.target.mesh.position, b.mesh.position).normalize();
+                b.mesh.position.addScaledVector(dir, 25 * dt);
+
+                if (b.mesh.position.distanceTo(b.target.mesh.position) < 0.8) {
+                    b.target.hp -= b.damage;
+                    scene.remove(b.mesh);
+                    state.bullets.splice(i, 1);
+
+                    if (b.target.hp <= 0) {
+                        const enemyIdx = state.enemies.indexOf(b.target);
+                        if (enemyIdx !== -1) {
+                            scene.remove(b.target.mesh);
+                            state.enemies.splice(enemyIdx, 1);
+                            state.battleGold += 15 * DIFFICULTY_SETTINGS[state.difficulty].goldMult;
+                            updateUI();
+                        }
+                    }
+                }
+            }
+
+            // 3. 적 이동 처리
+            for (let i = state.enemies.length - 1; i >= 0; i--) {
+                const e = state.enemies[i];
+                const targetNode = state.path[e.pathIndex + 1];
+
+                if (targetNode) {
+                    const dir = new THREE.Vector3().subVectors(targetNode, e.mesh.position);
+                    dir.y = 0;
+                    const dist = dir.length();
+
+                    if (dist < 0.2) {
+                        e.pathIndex++;
+                    } else {
+                        dir.normalize();
+                        e.mesh.position.addScaledVector(dir, e.speed * dt);
+                    }
+                } else {
+                    state.castleHp--;
+                    scene.remove(e.mesh);
+                    state.enemies.splice(i, 1);
+                    updateUI();
+
+                    if (state.castleHp <= 0) {
+                        alert("🏰 성이 파괴되었습니다! 패배!");
+                        exitToLobby();
+                        return;
+                    }
+                }
+            }
+
+            // 4. 웨이브 클리어 검사 및 난이도별 코인 보상 지급
+            if (!state.isPrepPhase && state.remainingToSpawn <= 0 && state.enemies.length === 0) {
+                const diff = DIFFICULTY_SETTINGS[state.difficulty];
+                const reward = diff.waveReward;
+
+                state.gold += reward;        // 계정 로비 골드 추가
+                state.battleGold += reward;  // 현재 전투 골드 추가
+                saveData();
+
+                alert(`🎉 WAVE ${state.wave} 클리어!\n[${diff.name}] 난이도 보상: +${reward} 코인 획득!`);
+                state.wave++;
+                startPrepPhase();
+            }
+        }
+
+        function createBullet(tower, target) {
+            const mesh = new THREE.Mesh(
+                new THREE.SphereGeometry(0.25, 8, 8),
+                new THREE.MeshBasicMaterial({ color: tower.poop.bulletColor })
+            );
+            mesh.position.copy(tower.mesh.position);
+            mesh.position.y += 0.5;
+            scene.add(mesh);
+
+            state.bullets.push({
+                mesh: mesh,
+                target: target,
+                damage: tower.damage
+            });
         }
 
         function onWindowResize() {
@@ -1294,24 +1254,24 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        // --- PeerJS 멀티플레이 스텁 ---
+        // PeerJS 멀티플레이어 바인딩 함수
         function createRoom() {
             const code = Math.floor(1000 + Math.random() * 9000).toString();
-            document.getElementById('room-code-display').innerText = code;
-            document.getElementById('room-created-box').style.display = 'block';
-            document.getElementById('room-join-box').style.display = 'none';
-
             peer = new Peer('poopTD-' + code);
+            
+            peer.on('open', id => {
+                document.getElementById('room-created-box').style.display = 'block';
+                document.getElementById('room-code-display').innerText = code;
+            });
+
             peer.on('connection', c => {
                 conn = c;
-                document.getElementById('connection-status').innerText = '🎮 플레이어 연결됨!';
-                state.isMultiplayer = true;
+                document.getElementById('connection-status').innerText = "상대방 접속됨!";
             });
         }
 
         function showJoinInput() {
             document.getElementById('room-join-box').style.display = 'block';
-            document.getElementById('room-created-box').style.display = 'none';
         }
 
         function joinRoom() {
@@ -1319,11 +1279,12 @@
             if (code.length !== 4) return alert("4자리 코드를 입력하세요.");
 
             peer = new Peer();
-            conn = peer.connect('poopTD-' + code);
-            conn.on('open', () => {
-                alert("방에 연결되었습니다!");
-                state.isMultiplayer = true;
-                closeModal('team-modal');
+            peer.on('open', () => {
+                conn = peer.connect('poopTD-' + code);
+                conn.on('open', () => {
+                    alert("방에 연결되었습니다!");
+                    closeModal('team-modal');
+                });
             });
         }
     </script>
