@@ -66,11 +66,15 @@
             text-align: center;
         }
 
-        #gacha-modal { width: 350px; }
+        #gacha-modal { width: 360px; }
         .rate-list { text-align: left; margin: 15px 0; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; }
         .rate-item { margin: 5px 0; font-size: 14px; }
         #gacha-result { margin-top: 10px; font-weight: bold; font-size: 16px; min-height: 24px; color: #00ffff; }
         
+        #auto-sell-modal { width: 300px; z-index: 2100; }
+        .auto-sell-list { text-align: left; margin: 15px 0; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; }
+        .auto-sell-item { margin: 8px 0; font-size: 14px; display: flex; align-items: center; justify-content: space-between; }
+
         #inventory-modal { width: 500px; }
         .inv-grid { 
             display: grid; 
@@ -137,7 +141,7 @@
             border-radius: 20px; 
             border: 3px solid #ffd700;
             display: flex; 
-            gap: 20px; 
+            gap: 15px; 
             align-items: center; 
             text-align: center;
             box-shadow: 0 0 25px rgba(0, 215, 0, 0.7);
@@ -146,9 +150,32 @@
         .stat-badge {
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 18px;
+            gap: 6px;
+            font-size: 16px;
             font-weight: 900;
+        }
+
+        .speed-btn-group {
+            display: flex;
+            gap: 4px;
+            background: rgba(255,255,255,0.1);
+            padding: 3px;
+            border-radius: 8px;
+        }
+        .speed-btn {
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+            padding: 4px 8px;
+            font-size: 12px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .speed-btn.active {
+            background: #ff9800;
+            border-color: #fff;
+            box-shadow: 0 0 8px #ff9800;
         }
 
         #skip-btn {
@@ -156,7 +183,7 @@
             color: white;
             border: none;
             padding: 6px 12px;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: bold;
             border-radius: 6px;
             cursor: pointer;
@@ -272,8 +299,44 @@
             <div class="rate-item" style="color:#ff00ff">황금 똥 : 0.5% (설치비 1500G)</div>
         </div>
         <div id="gacha-result"></div>
-        <button onclick="drawGacha()" style="background: #e67e22; font-size: 16px; font-weight: bold;">🎲 1회 뽑기 (30G)</button>
-        <button class="close-btn" onclick="closeModal('gacha-modal')">닫기</button>
+        <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 5px;">
+            <button onclick="drawGacha()" style="background: #e67e22; font-size: 16px; font-weight: bold;">🎲 1회 뽑기 (30G)</button>
+            <button onclick="openModal('auto-sell-modal')" style="background: #34495e; font-size: 13px;">⚙️ 자동 삭제(판매) 설정</button>
+            <button class="close-btn" onclick="closeModal('gacha-modal')">닫기</button>
+        </div>
+    </div>
+
+    <!-- 자동 판매 설정 모달 -->
+    <div id="auto-sell-modal" class="modal">
+        <h3>🗑️ 자동 삭제 설정</h3>
+        <p style="font-size: 12px; color: #aaa;">체크한 등급의 똥이 뽑히면 즉시 자동 판매(+10G)되어 인벤토리에 들어가지 않습니다.</p>
+        <div class="auto-sell-list">
+            <div class="auto-sell-item" style="color:#2ecc71">
+                <label for="as-NORMAL">일반 똥</label>
+                <input type="checkbox" id="as-NORMAL" onchange="toggleAutoSell('NORMAL', this.checked)">
+            </div>
+            <div class="auto-sell-item" style="color:#3498db">
+                <label for="as-BIG">큰 똥</label>
+                <input type="checkbox" id="as-BIG" onchange="toggleAutoSell('BIG', this.checked)">
+            </div>
+            <div class="auto-sell-item" style="color:#9b59b6">
+                <label for="as-LASER">레이저 똥</label>
+                <input type="checkbox" id="as-LASER" onchange="toggleAutoSell('LASER', this.checked)">
+            </div>
+            <div class="auto-sell-item" style="color:#f1c40f">
+                <label for="as-ATOMIC">원자 똥</label>
+                <input type="checkbox" id="as-ATOMIC" onchange="toggleAutoSell('ATOMIC', this.checked)">
+            </div>
+            <div class="auto-sell-item" style="color:#e74c3c">
+                <label for="as-SILVER">은 똥</label>
+                <input type="checkbox" id="as-SILVER" onchange="toggleAutoSell('SILVER', this.checked)">
+            </div>
+            <div class="auto-sell-item" style="color:#ff00ff">
+                <label for="as-GOLD">황금 똥</label>
+                <input type="checkbox" id="as-GOLD" onchange="toggleAutoSell('GOLD', this.checked)">
+            </div>
+        </div>
+        <button class="close-btn" onclick="closeModal('auto-sell-modal')">확인</button>
     </div>
 
     <div id="inventory-modal" class="modal">
@@ -290,9 +353,17 @@
             <div class="stat-badge" style="color: #ff4444;">🏰 성 HP: <span id="castle-hp">10</span></div>
             <div class="stat-badge" style="color: #00ffff;">⚔️ WAVE: <span id="wave-num">1</span></div>
             <div class="stat-badge" style="color: #ffd700;">💰 전투 골드: <span id="battle-gold">1000</span>G</div>
+            
+            <!-- 배속 조절 UI -->
+            <div class="speed-btn-group">
+                <button class="speed-btn active" id="spd-1" onclick="setGameSpeed(1)">1x</button>
+                <button class="speed-btn" id="spd-2" onclick="setGameSpeed(2)">2x</button>
+                <button class="speed-btn" id="spd-3" onclick="setGameSpeed(3)">3x</button>
+            </div>
+
             <div id="timer-display" class="stat-badge" style="color: #ff9900;">
                 ⏳ 준비시간: <span id="prep-timer">10</span>초 
-                <button id="skip-btn" onclick="skipPrepPhase()">⏩ 웨이브 시작</button>
+                <button id="skip-btn" onclick="skipPrepPhase()">⏩ 시작</button>
             </div>
             <div id="enemy-display" class="stat-badge" style="display:none; color: #ff4444;">👾 남은 적: <span id="enemy-count">0</span></div>
             <button class="lobby-return-btn" onclick="exitToLobby()">로비로 돌아가기</button>
@@ -315,7 +386,6 @@
     </div>
 
     <script>
-        // 은 똥, 황금 똥 스탯 너프 적용
         const POOP_TYPES = {
             NORMAL: { type: 'NORMAL', name: '일반 똥', cost: 300, border: 'border-normal', color: 0x2ecc71, bulletColor: 0x2ecc71, range: 7, damage: 25, speed: 800 },
             BIG:    { type: 'BIG',    name: '큰 똥',   cost: 500, border: 'border-big',    color: 0x3498db, bulletColor: 0x3498db, range: 8, damage: 55, speed: 1000 },
@@ -330,12 +400,14 @@
             inventory: [],
             battleDeck: [null, null, null, null, null],
             selectedInvIndices: [],
+            autoSellConfig: { NORMAL: false, BIG: false, LASER: false, ATOMIC: false, SILVER: false, GOLD: false },
             mode: 'LOBBY',
             battleGold: 1000,
             castleHp: 10,
             wave: 1,
             prepTime: 10,
             isPrepPhase: true,
+            gameSpeed: 1,
             selectedTowerInstance: null,
             towers: [],
             enemies: [],
@@ -360,6 +432,7 @@
         let draggingPoop = null;
         let previewTowerMesh = null;
         let rangeIndicatorMesh = null;
+        let lastFrameTime = performance.now();
 
         let bgm = new Audio('assets/sounds/bgm.mp3');
         bgm.loop = true;
@@ -370,7 +443,8 @@
             localStorage.setItem('poopTD_saveData', JSON.stringify({
                 gold: state.gold,
                 inventory: state.inventory,
-                battleDeck: state.battleDeck
+                battleDeck: state.battleDeck,
+                autoSellConfig: state.autoSellConfig
             }));
         }
 
@@ -382,12 +456,35 @@
                     state.gold = parsed.gold ?? 100;
                     state.inventory = parsed.inventory || [];
                     state.battleDeck = parsed.battleDeck || [null, null, null, null, null];
+                    state.autoSellConfig = parsed.autoSellConfig || { NORMAL: false, BIG: false, LASER: false, ATOMIC: false, SILVER: false, GOLD: false };
                 } catch(e) {}
             } else {
                 for(let i=0; i<5; i++) {
                     state.battleDeck[i] = { ...POOP_TYPES.NORMAL, id: Date.now() + i };
                 }
             }
+            
+            // 자동 판매 체크박스 상태 동기화
+            Object.keys(state.autoSellConfig).forEach(type => {
+                const el = document.getElementById('as-' + type);
+                if(el) el.checked = state.autoSellConfig[type];
+            });
+        }
+
+        function toggleAutoSell(type, isChecked) {
+            state.autoSellConfig[type] = isChecked;
+            saveData();
+        }
+
+        function setGameSpeed(spd) {
+            state.gameSpeed = spd;
+            [1, 2, 3].forEach(s => {
+                const btn = document.getElementById(`spd-${s}`);
+                if (btn) {
+                    if (s === spd) btn.classList.add('active');
+                    else btn.classList.remove('active');
+                }
+            });
         }
 
         function resetData() {
@@ -423,6 +520,7 @@
             window.addEventListener('drop', onPointerUp);
 
             buildLobby();
+            lastFrameTime = performance.now();
             animate();
         }
 
@@ -488,6 +586,7 @@
             clearScene();
             playBgm();
             state.mode = 'BATTLE';
+            setGameSpeed(1);
             scene.background = new THREE.Color(0x111118);
 
             state.towers = [];
@@ -541,7 +640,6 @@
 
         function drawGacha() {
             if (state.gold < 30) return alert("골드가 부족합니다!");
-            if (state.inventory.length >= 10) return alert("인벤토리가 가득 찼습니다!");
 
             state.gold -= 30;
             const rand = Math.random();
@@ -553,14 +651,23 @@
             else if (rand < 0.335) result = POOP_TYPES.LASER;
             else if (rand < 0.600) result = POOP_TYPES.BIG;
 
-            const newItem = { ...result, id: Date.now() + Math.random() };
-            state.inventory.push(newItem);
+            // 자동 삭제(판매) 로직
+            if (state.autoSellConfig[result.type]) {
+                state.gold += 10; // 자동 판매 금 환급
+                document.getElementById('gacha-result').innerText = `🗑️ [${result.name}] 자동 판매됨 (+10G)`;
+            } else {
+                if (state.inventory.length >= 10) {
+                    state.gold += 30; // 롤백
+                    return alert("인벤토리가 가득 찼습니다!");
+                }
+                const newItem = { ...result, id: Date.now() + Math.random() };
+                state.inventory.push(newItem);
+                document.getElementById('gacha-result').innerText = `🎉 [${result.name}] 인벤토리 획득!`;
+            }
 
             saveData();
             updateUI();
             renderGlobalBattleBar();
-
-            document.getElementById('gacha-result').innerText = `🎉 [${result.name}] 인벤토리 획득!`;
         }
 
         function openInventory() {
@@ -939,7 +1046,7 @@
                     clearInterval(waveSpawnInterval);
                     waveSpawnInterval = null;
                 }
-            }, 1000);
+            }, 1000 / state.gameSpeed);
         }
 
         function spawnEnemy() {
@@ -951,8 +1058,17 @@
             mesh.position.y = 0.6;
             scene.add(mesh);
 
-            const hp = 80 + (state.wave - 1) * 60; 
-            const speed = 0.06 + (state.wave - 1) * 0.007; 
+            // 적 스케일링 공식 (요청 사항 반영)
+            // 1~5 웨이브까지는 0.3배율로 시작
+            // 5웨이브 이후로는 0.6배율씩 대폭 증가
+            let scaleMultiplier = 0.3;
+            if (state.wave > 5) {
+                scaleMultiplier += (state.wave - 5) * 0.6;
+            }
+
+            const baseHp = 100;
+            const hp = Math.round(baseHp * scaleMultiplier * (1 + (state.wave - 1) * 0.5));
+            const speed = 0.05 * (1 + scaleMultiplier * 0.25);
 
             state.enemies.push({
                 mesh: mesh,
@@ -1029,7 +1145,12 @@
         function animate() {
             requestAnimationFrame(animate);
 
+            const currentTime = performance.now();
+            const delta = (currentTime - lastFrameTime) / 1000;
+            lastFrameTime = currentTime;
+
             const now = Date.now();
+            const timeFactor = (state.mode === 'BATTLE') ? state.gameSpeed : 1;
 
             if (state.mode === 'LOBBY' && player) {
                 const speed = 0.15;
@@ -1063,11 +1184,12 @@
                     if (target) {
                         const dir = new THREE.Vector3().subVectors(target, e.mesh.position);
                         dir.y = 0;
-                        if (dir.length() < e.speed) {
+                        const moveDist = e.speed * timeFactor;
+                        if (dir.length() < moveDist) {
                             e.pathIdx++;
                         } else {
                             dir.normalize();
-                            e.mesh.position.add(dir.multiplyScalar(e.speed));
+                            e.mesh.position.add(dir.multiplyScalar(moveDist));
                         }
                     } else {
                         scene.remove(e.mesh);
@@ -1084,7 +1206,8 @@
                 }
 
                 state.towers.forEach(t => {
-                    if (now - t.lastShot >= t.speed) {
+                    const adjustedSpeed = t.speed / timeFactor;
+                    if (now - t.lastShot >= adjustedSpeed) {
                         let target = null;
                         let minDist = t.range;
 
@@ -1110,7 +1233,7 @@
                                 mesh: bulletMesh,
                                 target: target,
                                 damage: t.damage,
-                                speed: 0.4
+                                speed: 0.4 * timeFactor
                             });
                         }
                     }
